@@ -14,7 +14,10 @@ This repository contains the shared Docker Compose configuration for all backend
 - **PostgreSQL** (port 5432) - Primary database with multiple databases for each service
 - **Redis** (port 6379) - Caching and rate limiting
 - **RabbitMQ** (ports 5672, 15672) - Message broker for inter-service communication
-- **Jaeger** (ports 16686, 4317, 4318) - Distributed tracing and observability
+- **Jaeger** (port 16686) - Distributed tracing
+- **OpenTelemetry Collector** (ports 4317, 4318) - Telemetry data collection and routing
+- **Prometheus** (port 9090) - Metrics storage and querying
+- **Grafana** (port 3000) - Metrics visualization and dashboards
 
 ## Quick Start
 
@@ -39,9 +42,22 @@ open http://localhost:15672  # guest/guest
 
 # Check Jaeger UI
 open http://localhost:16686
+
+# Verify observability stack
+./verify-observability.sh
 ```
 
-### 3. Run Individual Microservices
+### 3. Access Observability Stack
+
+The complete observability stack is automatically started:
+
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
+
+See [OBSERVABILITY.md](./OBSERVABILITY.md) for detailed documentation on instrumenting your services and creating dashboards.
+
+### 4. Run Individual Microservices
 
 Each microservice has its own docker-compose that connects to the shared network:
 
@@ -102,12 +118,17 @@ docker-compose down -v
 
 Services should use these connection strings:
 
-| Service    | Host             | Port  | Default Credentials |
-|------------|------------------|-------|---------------------|
-| PostgreSQL | padosme-postgres | 5432  | postgres/postgres   |
-| Redis      | padosme-redis    | 6379  | -                   |
-| RabbitMQ   | padosme-rabbitmq | 5672  | guest/guest         |
-| Jaeger     | padosme-jaeger   | 4317  | -                   |
+| Service              | Host                      | Port       | Default Credentials |
+|----------------------|---------------------------|------------|---------------------|
+| PostgreSQL           | padosme-postgres          | 5432       | postgres/postgres   |
+| Redis                | padosme-redis             | 6379       | -                   |
+| RabbitMQ             | padosme-rabbitmq          | 5672       | guest/guest         |
+| RabbitMQ Management  | padosme-rabbitmq          | 15672      | guest/guest         |
+| Jaeger               | padosme-jaeger            | 16686      | -                   |
+| OTLP Collector gRPC  | padosme-otel-collector    | 4317       | -                   |
+| OTLP Collector HTTP  | padosme-otel-collector    | 4318       | -                   |
+| Prometheus           | padosme-prometheus        | 9090       | -                   |
+| Grafana              | padosme-grafana           | 3000       | admin/admin         |
 
 ## Shared Go Packages
 
