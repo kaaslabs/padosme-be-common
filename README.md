@@ -12,7 +12,9 @@ Common backend infrastructure and shared resources for all Padosme microservices
 This repository contains the shared Docker Compose configuration for all backend infrastructure:
 
 - **PostgreSQL** (port 5432) - Primary database with multiple databases for each service
+- **pgAdmin4** (port 8000) - PostgreSQL database management UI
 - **Redis** (port 6379) - Caching and rate limiting
+- **RedisInsight** (port 5540) - Redis management and monitoring UI
 - **RabbitMQ** (ports 5672, 15672) - Message broker for inter-service communication
 - **Jaeger** (port 16686) - Distributed tracing
 - **OpenTelemetry Collector** (ports 4317, 4318) - Telemetry data collection and routing
@@ -47,10 +49,15 @@ open http://localhost:16686
 ./verify-observability.sh
 ```
 
-### 3. Access Observability Stack
+### 3. Access Management UIs
 
-The complete observability stack is automatically started:
+The following management interfaces are automatically available:
 
+**Database & Cache:**
+- **pgAdmin4**: http://localhost:8000 (admin@padosme.local/admin)
+- **RedisInsight**: http://localhost:5540
+
+**Observability:**
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 - **Jaeger**: http://localhost:16686
@@ -118,17 +125,19 @@ docker-compose down -v
 
 Services should use these connection strings:
 
-| Service              | Host                      | Port       | Default Credentials |
-|----------------------|---------------------------|------------|---------------------|
-| PostgreSQL           | padosme-postgres          | 5432       | postgres/postgres   |
-| Redis                | padosme-redis             | 6379       | -                   |
-| RabbitMQ             | padosme-rabbitmq          | 5672       | guest/guest         |
-| RabbitMQ Management  | padosme-rabbitmq          | 15672      | guest/guest         |
-| Jaeger               | padosme-jaeger            | 16686      | -                   |
-| OTLP Collector gRPC  | padosme-otel-collector    | 4317       | -                   |
-| OTLP Collector HTTP  | padosme-otel-collector    | 4318       | -                   |
-| Prometheus           | padosme-prometheus        | 9090       | -                   |
-| Grafana              | padosme-grafana           | 3000       | admin/admin         |
+| Service              | Host                      | Port       | Default Credentials        |
+|----------------------|---------------------------|------------|----------------------------|
+| PostgreSQL           | padosme-postgres          | 5432       | postgres/postgres          |
+| pgAdmin4             | localhost                 | 8000       | admin@padosme.local/admin  |
+| Redis                | padosme-redis             | 6379       | -                          |
+| RedisInsight         | localhost                 | 5540       | -                          |
+| RabbitMQ             | padosme-rabbitmq          | 5672       | guest/guest                |
+| RabbitMQ Management  | padosme-rabbitmq          | 15672      | guest/guest                |
+| Jaeger               | padosme-jaeger            | 16686      | -                          |
+| OTLP Collector gRPC  | padosme-otel-collector    | 4317       | -                          |
+| OTLP Collector HTTP  | padosme-otel-collector    | 4318       | -                          |
+| Prometheus           | padosme-prometheus        | 9090       | -                          |
+| Grafana              | padosme-grafana           | 3000       | admin/admin                |
 
 ## Shared Go Packages
 
