@@ -10,8 +10,8 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=padosme
+      - POSTGRES_PASSWORD=kaaslabs123@dev
       - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -46,8 +46,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=cto
+      - RABBITMQ_DEFAULT_PASS=kaaslabs123
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -110,7 +110,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=kaaslabs123
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -126,8 +126,8 @@ services:
     ports:
       - "8000:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@padosme.local
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
+      - PGADMIN_DEFAULT_PASSWORD=kaaslabs123
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     volumes:
