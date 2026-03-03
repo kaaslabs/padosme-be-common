@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -24,9 +25,16 @@ type Supervisor struct {
 	logger      *zap.Logger
 	wg          sync.WaitGroup
 	stopCh      chan struct{}
-	restartCh   chan string
+	restartCh   chan restartRequest
 	maxRestarts int
 	restartWait time.Duration
+	startOnce   sync.Once
+	stopOnce    sync.Once
+}
+
+type restartRequest struct {
+	worker Worker
+	err    error
 }
 
 // SupervisorConfig holds supervisor configuration
@@ -48,7 +56,7 @@ func NewSupervisor(logger *zap.Logger, config SupervisorConfig) *Supervisor {
 		workers:     make([]Worker, 0),
 		logger:      logger,
 		stopCh:      make(chan struct{}),
-		restartCh:   make(chan string, 10),
+		restartCh:   make(chan restartRequest, 10),
 		maxRestarts: config.MaxRestarts,
 		restartWait: config.RestartWait,
 	}
@@ -62,56 +70,51 @@ func (s *Supervisor) AddWorker(worker Worker) {
 
 // Start starts all workers with panic recovery and restart logic
 func (s *Supervisor) Start(ctx context.Context) {
-	s.logger.Info("starting supervisor", zap.Int("worker_count", len(s.workers)))
+	s.startOnce.Do(func() {
+		s.logger.Info("starting supervisor", zap.Int("worker_count", len(s.workers)))
 
-	// Start restart handler
-	go s.handleRestarts(ctx)
-
-	// Start all workers
-	for _, worker := range s.workers {
+		// Start restart handler and track it in wait group.
 		s.wg.Add(1)
-		go s.runWorker(ctx, worker, 0)
-	}
+		go s.handleRestarts(ctx)
+
+		// Start all workers.
+		for _, worker := range s.workers {
+			s.wg.Add(1)
+			go s.runWorker(ctx, worker)
+		}
+	})
 }
 
 // Stop stops all workers gracefully
 func (s *Supervisor) Stop() {
-	s.logger.Info("stopping supervisor")
-	close(s.stopCh)
-	s.wg.Wait()
-	s.logger.Info("supervisor stopped")
+	s.stopOnce.Do(func() {
+		s.logger.Info("stopping supervisor")
+		close(s.stopCh)
+		s.wg.Wait()
+		s.logger.Info("supervisor stopped")
+	})
 }
 
 // runWorker runs a worker with panic recovery and interval-based execution
-func (s *Supervisor) runWorker(ctx context.Context, worker Worker, restartCount int) {
+func (s *Supervisor) runWorker(ctx context.Context, worker Worker) {
 	defer s.wg.Done()
 
-	s.logger.Info("starting worker",
-		zap.String("worker", worker.Name),
-		zap.Int("restart_count", restartCount),
-	)
+	s.logger.Info("starting worker", zap.String("worker", worker.Name))
 
 	defer func() {
 		if r := recover(); r != nil {
+			var panicErr error
+			if e, ok := r.(error); ok {
+				panicErr = e
+			} else {
+				panicErr = fmt.Errorf("panic: %v", r)
+			}
+
 			s.logger.Error("worker panic recovered",
 				zap.String("worker", worker.Name),
 				zap.Any("panic", r),
 			)
-
-			// Check if we should restart
-			if restartCount < s.maxRestarts {
-				select {
-				case <-s.stopCh:
-					return
-				case s.restartCh <- worker.Name:
-					// Request restart
-				}
-			} else {
-				s.logger.Error("worker exceeded max restarts",
-					zap.String("worker", worker.Name),
-					zap.Int("max_restarts", s.maxRestarts),
-				)
-			}
+			s.requestRestart(worker, panicErr)
 		}
 	}()
 
@@ -119,12 +122,22 @@ func (s *Supervisor) runWorker(ctx context.Context, worker Worker, restartCount 
 	if worker.Interval > 0 {
 		s.runIntervalWorker(ctx, worker)
 	} else {
-		// For one-time or continuous workers, just execute
+		// For one-time or continuous workers, execute once. If execution
+		// fails before supervisor shutdown/cancel, request restart.
 		if err := s.safeExecute(ctx, worker); err != nil {
+			if ctx.Err() != nil || err == context.Canceled || err == context.DeadlineExceeded {
+				s.logger.Info("worker exited due to context cancellation",
+					zap.String("worker", worker.Name),
+					zap.Error(err),
+				)
+				return
+			}
+
 			s.logger.Error("worker execution error",
 				zap.String("worker", worker.Name),
 				zap.Error(err),
 			)
+			s.requestRestart(worker, err)
 		}
 	}
 }
@@ -173,18 +186,39 @@ func (s *Supervisor) safeExecute(ctx context.Context, worker Worker) (err error)
 				zap.String("worker", worker.Name),
 				zap.Any("panic", r),
 			)
-			// Convert panic to error
+			// Convert panic to error so callers can apply clear restart policy.
 			if e, ok := r.(error); ok {
 				err = e
+				return
 			}
+			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 
 	return worker.Fn(ctx)
 }
 
+func (s *Supervisor) requestRestart(worker Worker, err error) {
+	req := restartRequest{worker: worker, err: err}
+
+	select {
+	case <-s.stopCh:
+		return
+	case s.restartCh <- req:
+		return
+	default:
+		// Avoid deadlocking worker goroutines when restart channel is saturated.
+		s.logger.Error("restart request dropped due to full channel",
+			zap.String("worker", worker.Name),
+			zap.Error(err),
+		)
+	}
+}
+
 // handleRestarts handles worker restart requests
 func (s *Supervisor) handleRestarts(ctx context.Context) {
+	defer s.wg.Done()
+
 	restartCounts := make(map[string]int)
 
 	for {
@@ -193,35 +227,42 @@ func (s *Supervisor) handleRestarts(ctx context.Context) {
 			return
 		case <-s.stopCh:
 			return
-		case workerName := <-s.restartCh:
-			restartCounts[workerName]++
-			count := restartCounts[workerName]
+		case req := <-s.restartCh:
+			worker := req.worker
+			restartCounts[worker.Name]++
+			count := restartCounts[worker.Name]
 
 			if count > s.maxRestarts {
 				s.logger.Error("worker permanently stopped",
-					zap.String("worker", workerName),
+					zap.String("worker", worker.Name),
 					zap.Int("restart_count", count),
+					zap.Int("max_restarts", s.maxRestarts),
+					zap.Error(req.err),
 				)
 				continue
 			}
 
-			// Wait before restart
+			// Wait before restart and respect shutdown/cancel while waiting.
 			s.logger.Info("restarting worker",
-				zap.String("worker", workerName),
+				zap.String("worker", worker.Name),
 				zap.Int("restart_count", count),
 				zap.Duration("wait", s.restartWait),
+				zap.Error(req.err),
 			)
 
-			time.Sleep(s.restartWait)
-
-			// Find and restart the worker
-			for _, worker := range s.workers {
-				if worker.Name == workerName {
-					s.wg.Add(1)
-					go s.runWorker(ctx, worker, count)
-					break
-				}
+			timer := time.NewTimer(s.restartWait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-s.stopCh:
+				timer.Stop()
+				return
+			case <-timer.C:
 			}
+
+			s.wg.Add(1)
+			go s.runWorker(ctx, worker)
 		}
 	}
 }

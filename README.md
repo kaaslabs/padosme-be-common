@@ -164,3 +164,49 @@ import "github.com/kaaslabs/padosme-be-common/pkg/telemetry"
 import "github.com/kaaslabs/padosme-be-common/pkg/worker"
 import "github.com/kaaslabs/padosme-be-common/pkg/middleware"
 ```
+
+## Supervisor Pattern Usage
+
+Use `pkg/worker` to run background jobs with:
+
+- panic recovery
+- configurable restarts (`MaxRestarts`, `RestartWait`)
+- interval workers (`Interval > 0`)
+- one-time/long-running workers (`Interval == 0`)
+- graceful shutdown using context cancellation
+
+### Quick Example
+
+```go
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+
+supervisor := worker.NewSupervisor(logger, worker.SupervisorConfig{
+    MaxRestarts: 5,
+    RestartWait: 3 * time.Second,
+})
+
+supervisor.AddWorker(worker.Worker{
+    Name: "session-cleanup",
+    Interval: 1 * time.Hour,
+    Fn: func(ctx context.Context) error {
+        // cleanup logic
+        return nil
+    },
+})
+
+supervisor.Start(ctx)
+defer supervisor.Stop()
+```
+
+### Full Client Example
+
+A complete client-style example with signal handling, a long-running worker, and an interval worker is available at:
+
+- [`examples/supervisor-client/main.go`](./examples/supervisor-client/main.go)
+
+Run it with:
+
+```bash
+go run ./examples/supervisor-client
+```
