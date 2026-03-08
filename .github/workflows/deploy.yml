@@ -21,7 +21,7 @@ jobs:
           username: ${{ secrets.CLOUD_USER }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
           port: ${{ secrets.CLOUD_PORT || 22 }}
-          source: "docker-compose.yml,config/,init-scripts/"
+          source: "docker-compose.yml,config/,init-scripts/,scripts/"
           target: /opt/padosme/common/
           strip_components: 0
 
