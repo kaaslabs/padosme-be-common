@@ -1,0 +1,53 @@
+name: Deploy Observability Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Git ref to deploy (branch, tag, or commit SHA)"
+        required: false
+        default: "main"
+      strict_auth_check:
+        description: "Fail deployment if auth traces/metrics are not visible"
+        required: false
+        default: "false"
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to cloud server over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_REF: ${{ github.event.inputs.deploy_ref || github.sha }}
+          STRICT_AUTH_CHECK: ${{ github.event.inputs.strict_auth_check || 'false' }}
+          AUTH_SERVICE_NAME: padosme-auth-service
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          port: ${{ secrets.CLOUD_PORT || 22 }}
+          envs: DEPLOY_REF,STRICT_AUTH_CHECK,AUTH_SERVICE_NAME
+          script: |
+            set -euo pipefail
+            DEPLOY_PATH="${{ secrets.CLOUD_DEPLOY_PATH }}"
+
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "CLOUD_DEPLOY_PATH secret is required"
+              exit 1
+            fi
+
+            if [ ! -d "$DEPLOY_PATH/.git" ]; then
+              echo "Repo not found at $DEPLOY_PATH"
+              exit 1
+            fi
+
+            cd "$DEPLOY_PATH"
+            AUTH_SERVICE_NAME="$AUTH_SERVICE_NAME" STRICT_AUTH_CHECK="$STRICT_AUTH_CHECK" ./scripts/deploy-cloud.sh "$DEPLOY_REF"

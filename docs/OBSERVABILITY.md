@@ -50,7 +50,7 @@ Grafana is pre-configured with Prometheus as a data source.
    ```
 
 3. **Access the UIs**:
-   - Grafana: http://localhost:3000 (admin/admin)
+   - Grafana: http://localhost:3000 (admin/kaaslabs123)
    - Prometheus: http://localhost:9090
    - Jaeger: http://localhost:16686
 
@@ -130,7 +130,7 @@ Grafana is pre-configured with Prometheus as a data source.
 3. **Environment variables** (for containerized services):
    ```yaml
    environment:
-     - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+     - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
      - OTEL_SERVICE_NAME=your-service-name
      - OTEL_TRACES_EXPORTER=otlp
      - OTEL_METRICS_EXPORTER=otlp

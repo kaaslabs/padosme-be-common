@@ -58,11 +58,11 @@ The following management interfaces are automatically available:
 - **RedisInsight**: http://localhost:5540
 
 **Observability:**
-- **Grafana**: http://localhost:3000 (admin/admin)
+- **Grafana**: http://localhost:3000 (admin/kaaslabs123)
 - **Prometheus**: http://localhost:9090
 - **Jaeger**: http://localhost:16686
 
-See [OBSERVABILITY.md](./OBSERVABILITY.md) for detailed documentation on instrumenting your services and creating dashboards.
+See [Observability guide](./docs/OBSERVABILITY.md) for detailed documentation on instrumenting your services and creating dashboards.
 
 ### 4. Run Individual Microservices
 
@@ -137,7 +137,19 @@ Services should use these connection strings:
 | OTLP Collector gRPC  | padosme-otel-collector    | 4317       | -                          |
 | OTLP Collector HTTP  | padosme-otel-collector    | 4318       | -                          |
 | Prometheus           | padosme-prometheus        | 9090       | -                          |
-| Grafana              | padosme-grafana           | 3000       | admin/admin                |
+| Grafana              | padosme-grafana           | 3000       | admin/kaaslabs123          |
+
+## Cloud Deployment (CI/CD)
+
+This repo includes GitHub Actions-based CI/CD for deploying the shared stack to a cloud VM over SSH.
+
+- CI validation workflow: `.github/workflows/ci.yml`
+- Deployment workflow: `.github/workflows/deploy-observability.yml`
+- Cloud deployment runbook: [`docs/CICD_CLOUD_DEPLOYMENT.md`](./docs/CICD_CLOUD_DEPLOYMENT.md)
+- Production compose override: `docker-compose.prod.yml`
+- Cloud verification script: `scripts/cloud-verify-observability.sh`
+
+For `padosme-auth-service`, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your cloud collector (`<vm-ip>:4317`) and `OTEL_SERVICE_NAME=padosme-auth-service`.
 
 ## Shared Go Packages
 

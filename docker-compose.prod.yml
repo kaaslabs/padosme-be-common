@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  rabbitmq:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+
+  jaeger:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:14250:14250"
+
+  otel-collector:
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:4317:4317"
+      - "0.0.0.0:4318:4318"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8889:8889"
+
+  prometheus:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  pgadmin:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:80"
+
+  redisinsight:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5540:5540"

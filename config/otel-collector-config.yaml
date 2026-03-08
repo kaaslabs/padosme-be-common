@@ -51,6 +51,11 @@ service:
       processors: [memory_limiter, batch, resource]
       exporters: [prometheus, logging]
 
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [logging]
+
   telemetry:
     logs:
       level: info
