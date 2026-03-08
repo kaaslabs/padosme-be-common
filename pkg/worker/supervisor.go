@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
 )
 
@@ -21,15 +24,17 @@ type Worker struct {
 
 // Supervisor manages worker goroutines with panic recovery and automatic restart
 type Supervisor struct {
-	workers     []Worker
-	logger      *zap.Logger
-	wg          sync.WaitGroup
-	stopCh      chan struct{}
-	restartCh   chan restartRequest
-	maxRestarts int
-	restartWait time.Duration
-	startOnce   sync.Once
-	stopOnce    sync.Once
+	workers      []Worker
+	logger       *zap.Logger
+	wg           sync.WaitGroup
+	stopCh       chan struct{}
+	restartCh    chan restartRequest
+	maxRestarts  int
+	restartWait  time.Duration
+	startOnce    sync.Once
+	stopOnce     sync.Once
+	panicsTotal  metric.Int64Counter
+	restartsTotal metric.Int64Counter
 }
 
 type restartRequest struct {
@@ -52,13 +57,30 @@ func NewSupervisor(logger *zap.Logger, config SupervisorConfig) *Supervisor {
 		config.RestartWait = 5 * time.Second
 	}
 
+	meter := otel.Meter("padosme-be-common/worker")
+
+	// Ignore errors — a no-op instrument is returned on failure, which is safe.
+	panicsTotal, _ := meter.Int64Counter(
+		"worker.panics.total",
+		metric.WithDescription("Total worker panics recovered"),
+		metric.WithUnit("{panic}"),
+	)
+
+	restartsTotal, _ := meter.Int64Counter(
+		"worker.restarts.total",
+		metric.WithDescription("Total worker restart attempts"),
+		metric.WithUnit("{restart}"),
+	)
+
 	return &Supervisor{
-		workers:     make([]Worker, 0),
-		logger:      logger,
-		stopCh:      make(chan struct{}),
-		restartCh:   make(chan restartRequest, 10),
-		maxRestarts: config.MaxRestarts,
-		restartWait: config.RestartWait,
+		workers:       make([]Worker, 0),
+		logger:        logger,
+		stopCh:        make(chan struct{}),
+		restartCh:     make(chan restartRequest, 10),
+		maxRestarts:   config.MaxRestarts,
+		restartWait:   config.RestartWait,
+		panicsTotal:   panicsTotal,
+		restartsTotal: restartsTotal,
 	}
 }
 
@@ -114,6 +136,7 @@ func (s *Supervisor) runWorker(ctx context.Context, worker Worker) {
 				zap.String("worker", worker.Name),
 				zap.Any("panic", r),
 			)
+			s.panicsTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("worker", worker.Name)))
 			s.requestRestart(worker, panicErr)
 		}
 	}()
@@ -186,6 +209,7 @@ func (s *Supervisor) safeExecute(ctx context.Context, worker Worker) (err error)
 				zap.String("worker", worker.Name),
 				zap.Any("panic", r),
 			)
+			s.panicsTotal.Add(ctx, 1, metric.WithAttributes(attribute.String("worker", worker.Name)))
 			// Convert panic to error so callers can apply clear restart policy.
 			if e, ok := r.(error); ok {
 				err = e
@@ -239,6 +263,10 @@ func (s *Supervisor) handleRestarts(ctx context.Context) {
 					zap.Int("max_restarts", s.maxRestarts),
 					zap.Error(req.err),
 				)
+				s.restartsTotal.Add(ctx, 1, metric.WithAttributes(
+					attribute.String("worker", worker.Name),
+					attribute.String("outcome", "permanently_stopped"),
+				))
 				continue
 			}
 
@@ -249,6 +277,10 @@ func (s *Supervisor) handleRestarts(ctx context.Context) {
 				zap.Duration("wait", s.restartWait),
 				zap.Error(req.err),
 			)
+			s.restartsTotal.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("worker", worker.Name),
+				attribute.String("outcome", "restarted"),
+			))
 
 			timer := time.NewTimer(s.restartWait)
 			select {
