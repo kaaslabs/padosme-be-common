@@ -19,6 +19,5 @@ jobs:
 
       - name: Lint shell scripts
         run: |
-          sudo apt-get update
           sudo apt-get install -y shellcheck
           shellcheck scripts/deploy-cloud.sh scripts/cloud-verify-observability.sh verify-observability.sh
