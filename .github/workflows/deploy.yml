@@ -17,10 +17,10 @@ jobs:
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.CLOUD_HOST }}
-          username: ${{ secrets.CLOUD_USER }}
-          key: ${{ secrets.CLOUD_SSH_KEY }}
-          port: ${{ secrets.CLOUD_PORT || 22 }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           source: "docker-compose.yml,config/,init-scripts/,scripts/"
           target: /opt/padosme/common/
           strip_components: 0
@@ -28,10 +28,10 @@ jobs:
       - name: Deploy via docker compose
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.CLOUD_HOST }}
-          username: ${{ secrets.CLOUD_USER }}
-          key: ${{ secrets.CLOUD_SSH_KEY }}
-          port: ${{ secrets.CLOUD_PORT || 22 }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
             set -euo pipefail
             cd /opt/padosme/common
