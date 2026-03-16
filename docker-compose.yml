@@ -174,6 +174,23 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+  mongodb:
+    image: mongo:7
+    container_name: padosme-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongodb
+      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - padosme-network
 
 networks:
   padosme-network:
@@ -189,3 +206,5 @@ volumes:
   pgadmin-data:
   redisinsight-data:
   ollama-data:
+  mongodb-data:
+
