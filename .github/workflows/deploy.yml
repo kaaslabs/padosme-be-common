@@ -19,7 +19,7 @@ jobs:
         with:
           host: ${{ secrets.CLOUD_HOST }}
           username: ${{ secrets.CLOUD_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
           port: ${{ secrets.CLOUD_PORT || 22 }}
           source: "docker-compose.yml,config/,init-scripts/,scripts/"
           target: /opt/padosme/common/
@@ -30,7 +30,7 @@ jobs:
         with:
           host: ${{ secrets.CLOUD_HOST }}
           username: ${{ secrets.CLOUD_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
           port: ${{ secrets.CLOUD_PORT || 22 }}
           script: |
             set -euo pipefail
