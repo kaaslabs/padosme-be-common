@@ -47,5 +47,7 @@ jobs:
           script: |
             set -euo pipefail
             cd ${{ secrets.CLOUD_DEPLOY_PATH }}
-            docker-compose pull
-            docker-compose up -d --remove-orphans
+            docker compose down --remove-orphans || true
+            docker rm -f padosme-postgres padosme-redis padosme-ollama padosme-jaeger padosme-prometheus || true
+            docker compose pull
+            docker compose up -d --build --remove-orphans
