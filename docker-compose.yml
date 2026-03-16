@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Common infrastructure services for all Padosme backend microservices
 # Start this before running individual microservices
 
@@ -25,8 +23,12 @@ services:
       - padosme-network
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:7.2.0-v10
     container_name: padosme-redis
+    environment:
+      # Pass flags through the entrypoint so RediSearch + other modules load correctly.
+      # Overriding 'command' bypasses /entrypoint.sh and skips module loading.
+      - REDIS_ARGS=--appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
@@ -151,6 +153,28 @@ services:
     networks:
       - padosme-network
 
+  # Ollama — LLM inference for padosme-ai-service (Mistral 7B intent classification).
+  # CPU-only by default. After first start, pull the model:
+  #   docker exec padosme-ollama ollama pull mistral:7b-instruct-q4_K_M
+  # Uncomment the deploy block below if the server has an NVIDIA GPU
+  # and nvidia-container-toolkit is installed.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: padosme-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - padosme-network
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
 networks:
   padosme-network:
     name: padosme-network
@@ -164,3 +188,4 @@ volumes:
   grafana-data:
   pgadmin-data:
   redisinsight-data:
+  ollama-data:
