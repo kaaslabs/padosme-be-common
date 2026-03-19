@@ -6,7 +6,7 @@ services:
     image: postgres:16-alpine
     container_name: padosme-postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       - POSTGRES_USER=padosme
       - POSTGRES_PASSWORD=kaaslabs123@dev
@@ -45,8 +45,8 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: padosme-rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5673:5672"
+      - "15673:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=cto
       - RABBITMQ_DEFAULT_PASS=kaaslabs123
@@ -194,8 +194,7 @@ services:
 
 networks:
   padosme-network:
-    name: padosme-network
-    driver: bridge
+    external: true
 
 volumes:
   postgres-data:

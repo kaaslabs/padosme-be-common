@@ -1,0 +1,134 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/tameem/github/padosme-be-common/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+1. Start Infrastructure	README.md	/^### 1. Start Infrastructure$/;"	S	section:padosme-be-common""Quick Start
+1. `pkg/telemetry` ✅	SHARED_PACKAGES_SUMMARY.md	/^### 1. `pkg\/telemetry` ✅$/;"	S	section:Shared Packages Summary""What Was Created
+1. `telemetry` - OpenTelemetry Integration	pkg/README.md	/^### 1. `telemetry` - OpenTelemetry Integration$/;"	S	section:Padosme Common Packages""Available Packages
+2. Verify Services	README.md	/^### 2. Verify Services$/;"	S	section:padosme-be-common""Quick Start
+2. `pkg/worker` ✅	SHARED_PACKAGES_SUMMARY.md	/^### 2. `pkg\/worker` ✅$/;"	S	section:Shared Packages Summary""What Was Created
+2. `worker` - Supervisor Pattern	pkg/README.md	/^### 2. `worker` - Supervisor Pattern$/;"	S	section:Padosme Common Packages""Available Packages
+3. Run Individual Microservices	README.md	/^### 3. Run Individual Microservices$/;"	S	section:padosme-be-common""Quick Start
+3. `middleware` - HTTP Middleware	pkg/README.md	/^### 3. `middleware` - HTTP Middleware$/;"	S	section:Padosme Common Packages""Available Packages
+3. `pkg/middleware` ✅	SHARED_PACKAGES_SUMMARY.md	/^### 3. `pkg\/middleware` ✅$/;"	S	section:Shared Packages Summary""What Was Created
+AddWorker	pkg/worker/supervisor.go	/^func (s *Supervisor) AddWorker(worker Worker) {$/;"	f	struct:worker.Supervisor
+Available Packages	pkg/README.md	/^## Available Packages$/;"	s	chapter:Padosme Common Packages
+Benefits	SHARED_PACKAGES_SUMMARY.md	/^## Benefits$/;"	s	chapter:Shared Packages Summary
+Benefits	pkg/README.md	/^## Benefits$/;"	s	chapter:Padosme Common Packages
+Code Savings Per Service	SHARED_PACKAGES_SUMMARY.md	/^## Code Savings Per Service$/;"	s	chapter:Shared Packages Summary
+Completed ✅	SHARED_PACKAGES_SUMMARY.md	/^### Completed ✅$/;"	S	section:Shared Packages Summary""Integration Status
+Config	pkg/telemetry/telemetry.go	/^type Config struct {$/;"	s	package:telemetry
+Contents	README.md	/^## Contents$/;"	s	chapter:padosme-be-common
+Current Status	pkg/README.md	/^## Current Status$/;"	s	chapter:Padosme Common Packages
+Database Setup	README.md	/^## Database Setup$/;"	s	chapter:padosme-be-common
+DefaultConfig	pkg/telemetry/telemetry.go	/^func DefaultConfig(serviceName string) Config {$/;"	f	package:telemetry	typeref:typename:Config
+EOSQL	init-scripts/create-multiple-databases.sh	/^    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL$/;"	h
+Enabled	pkg/telemetry/telemetry.go	/^	Enabled      bool$/;"	m	struct:telemetry.Config	typeref:typename:bool
+Environment	pkg/telemetry/telemetry.go	/^	Environment  string$/;"	m	struct:telemetry.Config	typeref:typename:string
+Environment Variables	README.md	/^## Environment Variables$/;"	s	chapter:padosme-be-common
+Files Modified/Created	SHARED_PACKAGES_SUMMARY.md	/^## Files Modified\/Created$/;"	s	chapter:Shared Packages Summary
+Fn	pkg/worker/supervisor.go	/^	Fn       WorkerFunc$/;"	m	struct:worker.Worker	typeref:typename:WorkerFunc
+For Immediate Push (MVP)	SHARED_PACKAGES_SUMMARY.md	/^### For Immediate Push (MVP)$/;"	S	section:Shared Packages Summary""Recommendations
+For Local Development	pkg/README.md	/^### For Local Development$/;"	S	section:Padosme Common Packages""Integration Guide
+For Post-MVP (Recommended)	SHARED_PACKAGES_SUMMARY.md	/^### For Post-MVP (Recommended)$/;"	S	section:Shared Packages Summary""Recommendations
+Immediate	SHARED_PACKAGES_SUMMARY.md	/^### Immediate$/;"	S	section:Shared Packages Summary""Benefits
+Infrastructure Services	README.md	/^## Infrastructure Services$/;"	s	chapter:padosme-be-common
+Insecure	pkg/telemetry/telemetry.go	/^	Insecure     bool$/;"	m	struct:telemetry.Config	typeref:typename:bool
+Integration Guide	pkg/README.md	/^## Integration Guide$/;"	s	chapter:Padosme Common Packages
+Integration Status	SHARED_PACKAGES_SUMMARY.md	/^## Integration Status$/;"	s	chapter:Shared Packages Summary
+Interval	pkg/worker/supervisor.go	/^	Interval time.Duration$/;"	m	struct:worker.Worker	typeref:typename:time.Duration
+Logger	pkg/middleware/logger.go	/^func (m *LoggerMiddleware) Logger() gin.HandlerFunc {$/;"	f	struct:middleware.LoggerMiddleware	typeref:typename:gin.HandlerFunc
+Logger	pkg/telemetry/telemetry.go	/^	Logger         *zap.Logger$/;"	m	struct:telemetry.Telemetry	typeref:typename:*zap.Logger
+LoggerMiddleware	pkg/middleware/logger.go	/^type LoggerMiddleware struct {$/;"	s	package:middleware
+LoggerProvider	pkg/telemetry/telemetry.go	/^	LoggerProvider *sdklog.LoggerProvider$/;"	m	struct:telemetry.Telemetry	typeref:typename:*sdklog.LoggerProvider
+MaxRestarts	pkg/worker/supervisor.go	/^	MaxRestarts int           \/\/ Maximum restart attempts per worker (default: 5)$/;"	m	struct:worker.SupervisorConfig	typeref:typename:int
+MeterProvider	pkg/telemetry/telemetry.go	/^	MeterProvider  *sdkmetric.MeterProvider$/;"	m	struct:telemetry.Telemetry	typeref:typename:*sdkmetric.MeterProvider
+Migration Guide	SHARED_PACKAGES_SUMMARY.md	/^## Migration Guide$/;"	s	chapter:Shared Packages Summary
+Migration Steps	pkg/README.md	/^### Migration Steps$/;"	S	section:Padosme Common Packages""Integration Guide
+Name	pkg/worker/supervisor.go	/^	Name     string$/;"	m	struct:worker.Worker	typeref:typename:string
+Network Configuration	README.md	/^## Network Configuration$/;"	s	chapter:padosme-be-common
+New	pkg/telemetry/telemetry.go	/^func New(ctx context.Context, cfg Config) (*Telemetry, error) {$/;"	f	package:telemetry	typeref:typename:(*Telemetry, error)
+NewLoggerMiddleware	pkg/middleware/logger.go	/^func NewLoggerMiddleware(logger *zap.Logger) *LoggerMiddleware {$/;"	f	package:middleware	typeref:typename:*LoggerMiddleware
+NewRecoveryMiddleware	pkg/middleware/recovery.go	/^func NewRecoveryMiddleware(logger *zap.Logger) *RecoveryMiddleware {$/;"	f	package:middleware	typeref:typename:*RecoveryMiddleware
+NewSupervisor	pkg/worker/supervisor.go	/^func NewSupervisor(logger *zap.Logger, config SupervisorConfig) *Supervisor {$/;"	f	package:worker	typeref:typename:*Supervisor
+Next Steps	SHARED_PACKAGES_SUMMARY.md	/^## Next Steps$/;"	s	chapter:Shared Packages Summary
+Next Steps	pkg/README.md	/^## Next Steps$/;"	s	chapter:Padosme Common Packages
+OTLPEndpoint	pkg/telemetry/telemetry.go	/^	OTLPEndpoint string$/;"	m	struct:telemetry.Config	typeref:typename:string
+Option A: Push Now, Integrate Later (Recommended for MVP)	SHARED_PACKAGES_SUMMARY.md	/^### Option A: Push Now, Integrate Later (Recommended for MVP)$/;"	S	section:Shared Packages Summary""Next Steps
+Option B: Integrate Before Push	SHARED_PACKAGES_SUMMARY.md	/^### Option B: Integrate Before Push$/;"	S	section:Shared Packages Summary""Next Steps
+Overview	SHARED_PACKAGES_SUMMARY.md	/^## Overview$/;"	s	chapter:Shared Packages Summary
+Padosme Common Packages	pkg/README.md	/^# Padosme Common Packages$/;"	c
+Pending ⏳	SHARED_PACKAGES_SUMMARY.md	/^### Pending ⏳$/;"	S	section:Shared Packages Summary""Integration Status
+Post-Integration	SHARED_PACKAGES_SUMMARY.md	/^### Post-Integration$/;"	S	section:Shared Packages Summary""Benefits
+Prerequisites	pkg/README.md	/^### Prerequisites$/;"	S	section:Padosme Common Packages""Integration Guide
+Questions?	SHARED_PACKAGES_SUMMARY.md	/^## Questions?$/;"	s	chapter:Shared Packages Summary
+Quick Start	README.md	/^## Quick Start$/;"	s	chapter:padosme-be-common
+Recommendations	SHARED_PACKAGES_SUMMARY.md	/^## Recommendations$/;"	s	chapter:Shared Packages Summary
+Recovery	pkg/middleware/recovery.go	/^func (m *RecoveryMiddleware) Recovery() gin.HandlerFunc {$/;"	f	struct:middleware.RecoveryMiddleware	typeref:typename:gin.HandlerFunc
+RecoveryMiddleware	pkg/middleware/recovery.go	/^type RecoveryMiddleware struct {$/;"	s	package:middleware
+RestartWait	pkg/worker/supervisor.go	/^	RestartWait time.Duration \/\/ Wait time before restart (default: 5s)$/;"	m	struct:worker.SupervisorConfig	typeref:typename:time.Duration
+Service Changes (for integration)	SHARED_PACKAGES_SUMMARY.md	/^### Service Changes (for integration)$/;"	S	section:Shared Packages Summary""Files Modified/Created
+Service Compatibility Matrix	pkg/README.md	/^## Service Compatibility Matrix$/;"	s	chapter:Padosme Common Packages
+ServiceName	pkg/telemetry/telemetry.go	/^	ServiceName  string$/;"	m	struct:telemetry.Config	typeref:typename:string
+Shared Go Packages	README.md	/^## Shared Go Packages$/;"	s	chapter:padosme-be-common
+Shared Packages Summary	SHARED_PACKAGES_SUMMARY.md	/^# Shared Packages Summary$/;"	c
+Shutdown	pkg/telemetry/telemetry.go	/^func (t *Telemetry) Shutdown(ctx context.Context) error {$/;"	f	struct:telemetry.Telemetry	typeref:typename:error
+Start	pkg/worker/supervisor.go	/^func (s *Supervisor) Start(ctx context.Context) {$/;"	f	struct:worker.Supervisor
+Stop	pkg/worker/supervisor.go	/^func (s *Supervisor) Stop() {$/;"	f	struct:worker.Supervisor
+Stopping Infrastructure	README.md	/^## Stopping Infrastructure$/;"	s	chapter:padosme-be-common
+Supervisor	pkg/worker/supervisor.go	/^type Supervisor struct {$/;"	s	package:worker
+SupervisorConfig	pkg/worker/supervisor.go	/^type SupervisorConfig struct {$/;"	s	package:worker
+Telemetry	pkg/telemetry/telemetry.go	/^type Telemetry struct {$/;"	s	package:telemetry
+TestSupervisor_BasicExecution	pkg/worker/supervisor_test.go	/^func TestSupervisor_BasicExecution(t *testing.T) {$/;"	f	package:worker
+TestSupervisor_ErrorHandling	pkg/worker/supervisor_test.go	/^func TestSupervisor_ErrorHandling(t *testing.T) {$/;"	f	package:worker
+TestSupervisor_GracefulShutdown	pkg/worker/supervisor_test.go	/^func TestSupervisor_GracefulShutdown(t *testing.T) {$/;"	f	package:worker
+TestSupervisor_IntervalWorker	pkg/worker/supervisor_test.go	/^func TestSupervisor_IntervalWorker(t *testing.T) {$/;"	f	package:worker
+TestSupervisor_MaxRestarts	pkg/worker/supervisor_test.go	/^func TestSupervisor_MaxRestarts(t *testing.T) {$/;"	f	package:worker
+TestSupervisor_PanicRecovery	pkg/worker/supervisor_test.go	/^func TestSupervisor_PanicRecovery(t *testing.T) {$/;"	f	package:worker
+Testing Strategy	SHARED_PACKAGES_SUMMARY.md	/^## Testing Strategy$/;"	s	chapter:Shared Packages Summary
+Tracer	pkg/telemetry/telemetry.go	/^	Tracer         trace.Tracer$/;"	m	struct:telemetry.Telemetry	typeref:typename:trace.Tracer
+TracerProvider	pkg/telemetry/telemetry.go	/^	TracerProvider *sdktrace.TracerProvider$/;"	m	struct:telemetry.Telemetry	typeref:typename:*sdktrace.TracerProvider
+Usage	README.md	/^### Usage$/;"	S	section:padosme-be-common""Shared Go Packages
+Version	pkg/telemetry/telemetry.go	/^	Version      string$/;"	m	struct:telemetry.Config	typeref:typename:string
+What Was Created	SHARED_PACKAGES_SUMMARY.md	/^## What Was Created$/;"	s	chapter:Shared Packages Summary
+Worker	pkg/worker/supervisor.go	/^type Worker struct {$/;"	s	package:worker
+WorkerFunc	pkg/worker/supervisor.go	/^type WorkerFunc func(ctx context.Context) error$/;"	t	package:worker	typeref:typename:func(ctx context.Context) error
+`padosme-be-common/`	SHARED_PACKAGES_SUMMARY.md	/^### `padosme-be-common\/`$/;"	S	section:Shared Packages Summary""Files Modified/Created
+config	pkg/telemetry/telemetry.go	/^	config         Config$/;"	m	struct:telemetry.Telemetry	typeref:typename:Config
+createLogger	pkg/telemetry/telemetry.go	/^func createLogger(cfg Config, lp *sdklog.LoggerProvider) *zap.Logger {$/;"	f	package:telemetry	typeref:typename:*zap.Logger
+create_user_and_database	init-scripts/create-multiple-databases.sh	/^function create_user_and_database() {$/;"	f
+getEnv	pkg/telemetry/telemetry.go	/^func getEnv(key, defaultValue string) string {$/;"	f	package:telemetry	typeref:typename:string
+getEnvBool	pkg/telemetry/telemetry.go	/^func getEnvBool(key string, defaultValue bool) bool {$/;"	f	package:telemetry	typeref:typename:bool
+handleRestarts	pkg/worker/supervisor.go	/^func (s *Supervisor) handleRestarts(ctx context.Context) {$/;"	f	struct:worker.Supervisor
+initLoggerProvider	pkg/telemetry/telemetry.go	/^func initLoggerProvider(ctx context.Context, cfg Config, res *resource.Resource) (*sdklog.Logger/;"	f	package:telemetry	typeref:typename:(*sdklog.LoggerProvider, error)
+initMeterProvider	pkg/telemetry/telemetry.go	/^func initMeterProvider(ctx context.Context, cfg Config, res *resource.Resource) (*sdkmetric.Mete/;"	f	package:telemetry	typeref:typename:(*sdkmetric.MeterProvider, error)
+initTracerProvider	pkg/telemetry/telemetry.go	/^func initTracerProvider(ctx context.Context, cfg Config, res *resource.Resource) (*sdktrace.Trac/;"	f	package:telemetry	typeref:typename:(*sdktrace.TracerProvider, error)
+logger	pkg/middleware/logger.go	/^	logger *zap.Logger$/;"	m	struct:middleware.LoggerMiddleware	typeref:typename:*zap.Logger
+logger	pkg/middleware/recovery.go	/^	logger *zap.Logger$/;"	m	struct:middleware.RecoveryMiddleware	typeref:typename:*zap.Logger
+logger	pkg/worker/supervisor.go	/^	logger      *zap.Logger$/;"	m	struct:worker.Supervisor	typeref:typename:*zap.Logger
+maxRestarts	pkg/worker/supervisor.go	/^	maxRestarts int$/;"	m	struct:worker.Supervisor	typeref:typename:int
+middleware	pkg/middleware/logger.go	/^package middleware$/;"	p
+middleware	pkg/middleware/recovery.go	/^package middleware$/;"	p
+padosme-be-common	README.md	/^# padosme-be-common$/;"	c
+restartCh	pkg/worker/supervisor.go	/^	restartCh   chan string$/;"	m	struct:worker.Supervisor	typeref:typename:chan string
+restartWait	pkg/worker/supervisor.go	/^	restartWait time.Duration$/;"	m	struct:worker.Supervisor	typeref:typename:time.Duration
+runIntervalWorker	pkg/worker/supervisor.go	/^func (s *Supervisor) runIntervalWorker(ctx context.Context, worker Worker) {$/;"	f	struct:worker.Supervisor
+runWorker	pkg/worker/supervisor.go	/^func (s *Supervisor) runWorker(ctx context.Context, worker Worker, restartCount int) {$/;"	f	struct:worker.Supervisor
+safeExecute	pkg/worker/supervisor.go	/^func (s *Supervisor) safeExecute(ctx context.Context, worker Worker) (err error) {$/;"	f	struct:worker.Supervisor	typeref:typename:(err error)
+sdklog	pkg/telemetry/telemetry.go	/^	sdklog "go.opentelemetry.io\/otel\/sdk\/log"$/;"	P	package:go.opentelemetry.io/otel/sdk/log
+sdkmetric	pkg/telemetry/telemetry.go	/^	sdkmetric "go.opentelemetry.io\/otel\/sdk\/metric"$/;"	P	package:go.opentelemetry.io/otel/sdk/metric
+sdktrace	pkg/telemetry/telemetry.go	/^	sdktrace "go.opentelemetry.io\/otel\/sdk\/trace"$/;"	P	package:go.opentelemetry.io/otel/sdk/trace
+semconv	pkg/telemetry/telemetry.go	/^	semconv "go.opentelemetry.io\/otel\/semconv\/v1.24.0"$/;"	P	package:go.opentelemetry.io/otel/semconv/v1.24.0
+stopCh	pkg/worker/supervisor.go	/^	stopCh      chan struct{}$/;"	m	struct:worker.Supervisor	typeref:typename:chan struct{}
+telemetry	pkg/telemetry/telemetry.go	/^package telemetry$/;"	p
+wg	pkg/worker/supervisor.go	/^	wg          sync.WaitGroup$/;"	m	struct:worker.Supervisor	typeref:typename:sync.WaitGroup
+worker	pkg/worker/supervisor.go	/^package worker$/;"	p
+worker	pkg/worker/supervisor_test.go	/^package worker$/;"	p
+workers	pkg/worker/supervisor.go	/^	workers     []Worker$/;"	m	struct:worker.Supervisor	typeref:typename:[]Worker
