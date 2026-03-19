@@ -46,9 +46,9 @@ jobs:
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
             cd ${{ secrets.CLOUD_DEPLOY_PATH }}
-            docker compose down || true
+            docker-compose down || true
             docker rm -f padosme-postgres padosme-redis padosme-ollama padosme-jaeger padosme-prometheus padosme-rabbitmq padosme-otel-collector padosme-redisinsight padosme-mongodb padosme-pgadmin padosme-grafana || true
             docker system prune -f || true
             docker network create padosme-network || true
-            docker compose pull
-            docker compose up -d --build
+            docker-compose pull
+            docker-compose up -d --build
