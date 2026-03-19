@@ -48,5 +48,5 @@ jobs:
             cd ${{ secrets.CLOUD_DEPLOY_PATH }}
             docker-compose down || true
             docker rm -f padosme-postgres padosme-redis padosme-ollama padosme-jaeger padosme-prometheus || true
-            docker-compose pull
-            docker-compose up -d --build
+            docker compose pull
+            docker compose up -d --build
