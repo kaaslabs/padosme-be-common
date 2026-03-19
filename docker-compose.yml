@@ -10,7 +10,7 @@ services:
     environment:
       - POSTGRES_USER=padosme
       - POSTGRES_PASSWORD=kaaslabs123@dev
-      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers
+      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
