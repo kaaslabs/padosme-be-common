@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/kaaslabs/padosme-be-common/pkg/errors"
+	"github.com/kaaslabs/padosme-be-common/v2/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 

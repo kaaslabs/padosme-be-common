@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kaaslabs/padosme-be-common/pkg/config"
+	"github.com/kaaslabs/padosme-be-common/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

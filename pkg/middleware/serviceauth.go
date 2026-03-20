@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	pkgauth "github.com/kaaslabs/padosme-be-common/pkg/auth"
+	pkgauth "github.com/kaaslabs/padosme-be-common/v2/pkg/auth"
 )
 
 const HeaderServiceToken = "X-Service-Token"

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kaaslabs/padosme-be-common/pkg/middleware"
+	"github.com/kaaslabs/padosme-be-common/v2/pkg/middleware"
 	"github.com/stretchr/testify/assert"
 )
 
