@@ -4,15 +4,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	pkgauth "github.com/kaaslabs/padosme-be-common/pkg/auth"
 )
 
 const HeaderServiceToken = "X-Service-Token"
 
-// ServiceAuth returns a Gin middleware that validates the X-Service-Token header
-// against the expected token. Requests without a valid token receive 401.
-//
-// This is used by internal services (query-intelligence, search-engine, ai-service)
-// to reject requests that did not originate from another PadosMe service.
+// ServiceAuth validates the static X-Service-Token header against expectedToken.
+// Use this for simple service-to-service authentication with a shared secret.
 func ServiceAuth(expectedToken string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader(HeaderServiceToken)
@@ -26,4 +24,18 @@ func ServiceAuth(expectedToken string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// ServiceAuthJWT validates a Bearer JWT in the Authorization header.
+// On success it populates user_id, user_type, lang, and claims into the Gin
+// context — identical to pkg/auth.RequireAuth but named for service-to-service use.
+func ServiceAuthJWT(secret string) gin.HandlerFunc {
+	return pkgauth.RequireAuth(secret)
+}
+
+// RequireRole returns a middleware that permits only the specified user types.
+// Must be chained after ServiceAuthJWT or pkg/auth.RequireAuth.
+// Aborts with 403 if the caller's user_type is not in the allowed list.
+func RequireRole(roles ...string) gin.HandlerFunc {
+	return pkgauth.RequireUserType(roles...)
 }
