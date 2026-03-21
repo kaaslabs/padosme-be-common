@@ -49,7 +49,7 @@ services:
       - "15673:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=cto
-      - RABBITMQ_DEFAULT_PASS=kaaslabs123
+      - RABBITMQ_DEFAULT_PASS=kaaslabs123@dev
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -111,7 +111,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=kaaslabs123
+      - GF_SECURITY_ADMIN_PASSWORD=kaaslabs123@dev
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -180,7 +180,7 @@ services:
       - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=mongodb
-      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123
+      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123@dev
     volumes:
       - mongodb-data:/data/db
     healthcheck:
