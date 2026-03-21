@@ -65,6 +65,23 @@ jobs:
             docker-compose pull
             docker-compose up -d --build
 
+      - name: Ensure padosme database user exists
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          port: ${{ secrets.CLOUD_PORT }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            docker exec padosme-postgres psql -U postgres -c \
+              "DO \$\$ BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'padosme') THEN
+                  CREATE USER padosme WITH SUPERUSER PASSWORD 'kaaslabs123@dev';
+                ELSE
+                  ALTER USER padosme WITH PASSWORD 'kaaslabs123@dev';
+                END IF;
+              END \$\$;"
+
       - name: Run database setup and migrations
         uses: appleboy/ssh-action@v1.0.3
         with:

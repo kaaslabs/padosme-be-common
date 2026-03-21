@@ -10,7 +10,7 @@ services:
     environment:
       - POSTGRES_USER=padosme
       - POSTGRES_PASSWORD=kaaslabs123@dev
-      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers
+      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
@@ -18,7 +18,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 2
     networks:
       - padosme-network
 
@@ -37,7 +37,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 2
     networks:
       - padosme-network
 
@@ -56,7 +56,7 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 2
     networks:
       - padosme-network
 
@@ -179,7 +179,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=mongodb
+      - MONGO_INITDB_ROOT_USERNAME=padosme
       - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123@dev
     volumes:
       - mongodb-data:/data/db
@@ -187,7 +187,7 @@ services:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 2
     networks:
       - padosme-network
 
