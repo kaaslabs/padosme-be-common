@@ -14,6 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # -----------------------------------------------------------------------
+      # Step 1: Copy files to server
+      # Copies docker-compose.yml, config/, init-scripts/, scripts/
+      # to $CLOUD_DEPLOY_PATH (e.g. /opt/padosme/common)
+      # -----------------------------------------------------------------------
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -21,11 +26,16 @@ jobs:
           username: ${{ secrets.CLOUD_USER }}
           port: ${{ secrets.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.yml, config/,init-scrpits/, scripts/"
+          source: "docker-compose.yml,config/,init-scripts/,scripts/"
           target: ${{ secrets.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
-      - name: Deploy via docker-compose
+      # -----------------------------------------------------------------------
+      # Step 2: Deploy docker containers
+      # Stops and removes all containers (running, exited, unhealthy),
+      # then pulls latest images and starts all services.
+      # -----------------------------------------------------------------------
+      - name: Deploy docker containers
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.CLOUD_HOST }}
@@ -34,10 +44,47 @@ jobs:
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
             cd ${{ secrets.CLOUD_DEPLOY_PATH }}
-            docker compose down || true
-            docker rm -f padosme-postgres padosme-redis padosme-ollama padosme-jaeger padosme-prometheus padosme-rabbitmq padosme-otel-collector padosme-redisinsight padosme-mongodb padosme-pgadmin padosme-grafana || true
-            docker system prune -f || true
-            docker network create padosme-network || true
-            docker compose pull
-            docker compose up -d --build
 
+            # Bring down compose stack and remove orphans
+            docker compose -f docker-compose.yml down --remove-orphans || true
+
+            # Force-remove any remaining padosme containers (exited, unhealthy, etc.)
+            CONTAINERS=$(docker ps -aq --filter "name=padosme-")
+            if [ -n "$CONTAINERS" ]; then
+              docker rm -f $CONTAINERS
+            fi
+
+            # Ensure the shared network exists
+            docker network create padosme-network 2>/dev/null || true
+
+            # Pull latest images and start all services
+            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml up -d --build
+
+      # -----------------------------------------------------------------------
+      # Step 3: Initialize RabbitMQ topology and databases
+      # Runs after containers are up. Scripts have built-in readiness waits.
+      # Ports per docker-compose.yml:
+      #   RabbitMQ management -> 15673
+      #   PostgreSQL          -> 5434
+      # -----------------------------------------------------------------------
+      - name: Initialize RabbitMQ and databases
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          port: ${{ secrets.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ secrets.CLOUD_DEPLOY_PATH }}
+            chmod +x scripts/setup-rabbitmq.sh scripts/setup-databases.sh
+
+            # Declare all RabbitMQ exchanges, queues and bindings
+            RABBITMQ_HOST=localhost \
+            RABBITMQ_MGMT_PORT=15673 \
+            ./scripts/setup-rabbitmq.sh
+
+            # Create all PostgreSQL databases and run available migrations
+            PGHOST=localhost \
+            PGPORT=5434 \
+            ./scripts/setup-databases.sh
