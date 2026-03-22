@@ -27,6 +27,18 @@ jobs:
             exit 1
           fi
 
+      - name: Pre-create deployment folder
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CLOUD_HOST }}
+          username: ${{ secrets.CLOUD_USER }}
+          port: ${{ secrets.CLOUD_PORT }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            sudo mkdir -p ${{ secrets.CLOUD_DEPLOY_PATH }}
+            sudo chown -R ${{ secrets.CLOUD_USER }}:${{ secrets.CLOUD_USER }} ${{ secrets.CLOUD_DEPLOY_PATH }}
+            sudo chmod -R 755 ${{ secrets.CLOUD_DEPLOY_PATH }}
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
