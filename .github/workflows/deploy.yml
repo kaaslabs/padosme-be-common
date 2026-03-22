@@ -62,13 +62,12 @@ jobs:
             docker compose -f docker-compose.yml up -d --build
 
       # -----------------------------------------------------------------------
-      # Step 3: Initialize RabbitMQ topology and databases
+      # Step 3: Initialize RabbitMQ topology
       # Runs after containers are up. Scripts have built-in readiness waits.
       # Ports per docker-compose.yml:
       #   RabbitMQ management -> 15673
-      #   PostgreSQL          -> 5434
       # -----------------------------------------------------------------------
-      - name: Initialize RabbitMQ and databases
+      - name: Initialize RabbitMQ 
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.CLOUD_HOST }}
@@ -81,7 +80,3 @@ jobs:
 
             # Declare all RabbitMQ exchanges, queues and bindings
             ./scripts/setup-rabbitmq.sh
-
-            # Install psql client if not present, then run database setup
-            command -v psql >/dev/null 2>&1 || apt-get install -y postgresql-client
-            ./scripts/setup-databases.sh
