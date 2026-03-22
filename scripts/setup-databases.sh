@@ -14,7 +14,7 @@
 #
 # Environment variables (all optional):
 #   PGHOST        default: localhost
-#   PGPORT        default: 5432
+#   PGPORT        default: 5434
 #   PGUSER        default: padosme
 #   PGPASSWORD    default: kaaslabs123@dev
 #
@@ -35,7 +35,7 @@ set -euo pipefail
 # Config
 # ---------------------------------------------------------------------------
 PGHOST="${PGHOST:-localhost}"
-PGPORT="${PGPORT:-5432}"
+PGPORT="${PGPORT:-5434}"
 PGUSER="${PGUSER:-padosme}"
 PGPASSWORD="${PGPASSWORD:-kaaslabs123@dev}"
 export PGPASSWORD
