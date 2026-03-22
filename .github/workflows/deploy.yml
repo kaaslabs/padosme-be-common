@@ -80,11 +80,8 @@ jobs:
             chmod +x scripts/setup-rabbitmq.sh scripts/setup-databases.sh
 
             # Declare all RabbitMQ exchanges, queues and bindings
-            RABBITMQ_HOST=localhost \
-            RABBITMQ_MGMT_PORT=15673 \
             ./scripts/setup-rabbitmq.sh
 
-            # Create all PostgreSQL databases and run available migrations
-            PGHOST=localhost \
-            PGPORT=5434 \
+            # Install psql client if not present, then run database setup
+            command -v psql >/dev/null 2>&1 || apt-get install -y postgresql-client
             ./scripts/setup-databases.sh
