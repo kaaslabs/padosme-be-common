@@ -20,8 +20,8 @@
 #   padosme-auth-service, padosme-user-profile-service, padosme-seller-service,
 #   mobile-sms-service, padosme-notification-service, padosme-rating-service,
 #   padosme-analytics-service, padosme-channel-service, padosme-catalogue-service,
-#   padosme-wallet-service, padosme-coupon-service, padosme-discovery-service,
-#   ledgers-cloud-connect-service, padosme-indexing-service
+#   padosme-wallet-service, padosme-coupon-service, padosme-subscription-service,
+#   padosme-discovery-service, ledgers-cloud-connect-service, padosme-indexing-service
 
 set -euo pipefail
 
@@ -205,11 +205,12 @@ fi
 #   catalogue-service       -> catalog.events  -> rating-service, analytics-service, indexing-service
 #   channel-service         -> channel.events  -> analytics-service
 #   wallet-service          -> wallet.events   -> analytics-service
-#   coupon-service          -> coupon.events   -> analytics-service
+#   coupon-service          -> coupon.events   -> notification-service, wallet-service, analytics-service
+#   subscription-service    -> subscription.events -> coupon-service, wallet-service, analytics-service
 #   analytics-service       -> analytics.events -> (dashboards / downstream)
 #   discovery-service       -> discovery.events -> analytics-service
 #   seller-service          -> seller.events   -> rating-service, analytics-service, channel-service
-#   subscription-service    -> subscription.events -> analytics-service (future RMQ migration)
+#   padosme.events (seller) -> coupon-service (seller.verified)
 #   ledgers-cloud-connect   -> ledgers.exchange -> ledgers internal
 # =========================================================================
 
@@ -265,6 +266,15 @@ declare_exchange "seller-service.dlx"      "fanout"
 
 # sms-service DLX (fanout)
 declare_exchange "sms-service.dlx"         "fanout"
+
+# coupon-service DLX (fanout — nacked consumer msgs)
+declare_exchange "coupon-service.dlx"      "fanout"
+
+# wallet-service DLX (fanout)
+declare_exchange "wallet-service.dlx"      "fanout"
+
+# subscription-service DLX (fanout)
+declare_exchange "subscription-service.dlx" "fanout"
 
 # indexing-service DLX (fanout — all 4 consumer DLQs)
 declare_exchange "indexing-service.dlx"    "fanout"
@@ -337,6 +347,30 @@ declare_queue "indexing.rating.events" \
 declare_queue "search.requested"
 declare_queue "search.result"
 
+# --- coupon-service (consumers) ---
+# Consumes subscription.created from subscription.events (close audit trail)
+declare_queue "coupon.subscription-events" \
+  '{"x-dead-letter-exchange":"coupon-service.dlx"}'
+
+# Consumes seller.verified from padosme.events (cache seller for validation)
+declare_queue "coupon.seller-events" \
+  '{"x-dead-letter-exchange":"coupon-service.dlx"}'
+
+# --- notification-service (coupon domain) ---
+# Consumes coupon events from coupon.events
+declare_queue "notification.coupon-events" \
+  '{"x-dead-letter-exchange":"padosme.retry"}'
+
+# --- wallet-service (coupon domain) ---
+# Consumes coupon.redeemed from coupon.events (salesman commission)
+declare_queue "wallet.coupon-events" \
+  '{"x-dead-letter-exchange":"wallet-service.dlx"}'
+
+# --- subscription-service (coupon domain) ---
+# Consumes coupon.validated from coupon.events (pre-apply discount info)
+declare_queue "subscription.coupon-events" \
+  '{"x-dead-letter-exchange":"subscription-service.dlx"}'
+
 # --- ledgers-cloud-connect-service ---
 # All queues with TTL + DLX
 declare_queue "ledgers.requests" \
@@ -377,6 +411,15 @@ declare_queue "analytics.ingest.dlq"
 
 # channel-service DLQ
 declare_queue "padosme-channel-service.dlq"
+
+# coupon-service DLQ
+declare_queue "coupon-service.dead-letter"
+
+# wallet-service DLQ
+declare_queue "wallet-service.dead-letter"
+
+# subscription-service DLQ
+declare_queue "subscription-service.dead-letter"
 
 # indexing-service DLQs (one per consumer queue)
 declare_queue "indexing.dlq.seller"
@@ -440,6 +483,27 @@ declare_binding "coupon.events"       "analytics.ingest" "coupon.redeemed"
 declare_binding "subscription.events" "analytics.ingest" "subscription.created"
 declare_binding "subscription.events" "analytics.ingest" "subscription.renewed"
 
+# ---- coupon-service (consumers): bind to upstream exchanges ----
+declare_binding "subscription.events" "coupon.subscription-events" "subscription.created"
+declare_binding "padosme.events"      "coupon.seller-events"       "seller.verified"
+
+# ---- notification-service: coupon domain events ----
+declare_binding "coupon.events" "notification.coupon-events" "coupon.created"
+declare_binding "coupon.events" "notification.coupon-events" "coupon.redeemed"
+declare_binding "coupon.events" "notification.coupon-events" "campaign.limit_reached"
+
+# ---- wallet-service: coupon domain events ----
+declare_binding "coupon.events" "wallet.coupon-events" "coupon.redeemed"
+
+# ---- subscription-service: coupon domain events ----
+declare_binding "coupon.events" "subscription.coupon-events" "coupon.validated"
+
+# ---- analytics.ingest: additional coupon domain events ----
+declare_binding "coupon.events" "analytics.ingest" "coupon.created"
+declare_binding "coupon.events" "analytics.ingest" "coupon.validated"
+declare_binding "coupon.events" "analytics.ingest" "coupon.expired"
+declare_binding "coupon.events" "analytics.ingest" "campaign.limit_reached"
+
 # ---- padosme-channel-service: binds to seller + auth exchanges ----
 declare_binding "padosme.seller" "padosme-channel-service" "seller.created"
 declare_binding "padosme.seller" "padosme-channel-service" "seller.deleted"
@@ -500,6 +564,15 @@ declare_binding "analytics.dlq" "analytics.ingest.dlq" "analytics.ingest.dlq"
 # channel-service DLX -> DLQ (wildcard)
 declare_binding "padosme.dlx" "padosme-channel-service.dlq" "#"
 
+# coupon-service DLX -> DLQ
+declare_binding "coupon-service.dlx"       "coupon-service.dead-letter"       ""
+
+# wallet-service DLX -> DLQ
+declare_binding "wallet-service.dlx"       "wallet-service.dead-letter"       ""
+
+# subscription-service DLX -> DLQ
+declare_binding "subscription-service.dlx" "subscription-service.dead-letter"  ""
+
 # indexing-service DLX -> DLQs (fanout, routing key ignored)
 declare_binding "indexing-service.dlx" "indexing.dlq.seller"   ""
 declare_binding "indexing-service.dlx" "indexing.dlq.location" ""
@@ -531,17 +604,15 @@ fi
 
 echo ""
 echo -e "${DIM}Topology summary:${RESET}"
-echo    "  19 exchanges (15 business domain + 4 DLX/retry)"
-echo    "  35 queues (19 main + 16 dead-letter)"
-echo    "  54 bindings"
+echo    "  22 exchanges (15 business domain + 7 DLX/retry)"
+echo    "  43 queues (24 main + 19 dead-letter)"
+echo    "  72 bindings"
 echo ""
 echo -e "${DIM}Known gaps (require code changes, not setup changes):${RESET}"
 echo    "  - analytics-service consumer binds to 'auth.events' but auth-service"
 echo    "    publishes to 'user.events'. The binding above uses 'user.events'."
 echo    "  - analytics-service expects 'channel.events' but channel-service"
 echo    "    publishes to 'padosme.channel'. Both exchanges are declared."
-echo    "  - analytics-service expects 'coupon.events' but coupon-service"
-echo    "    publishes to 'padosme.events'. Both exchanges are declared."
 echo    "  - subscription-service uses Redis Streams, not RMQ. The"
 echo    "    'subscription.events' exchange is declared for future migration."
 echo    "  - seller-service publishes seller.requested — no consumer declared"
