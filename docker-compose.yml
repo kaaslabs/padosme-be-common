@@ -173,21 +173,16 @@ services:
     #         - driver: nvidia
     #           count: 1
     #           capabilities: [gpu]
+
   mongodb:
     image: mongo:7
     container_name: padosme-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     environment:
-<<<<<<< HEAD
       - MONGO_INITDB_ROOT_USERNAME=padosme
       - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123@dev
-=======
-      - MONGO_INITDB_ROOT_USERNAME=mongodb
-      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123
-      - MONGO_PACKAGE=mongodb-org
-      - MONGO_REPO=repo.mongodb.org
->>>>>>> 1a33d62 (mongodb fix)
     volumes:
       - common_mongodb-data:/data/db:rw
     healthcheck:
