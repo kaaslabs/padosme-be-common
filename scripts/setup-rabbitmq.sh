@@ -15,13 +15,13 @@
 #   RABBITMQ_PASSWORD    default: kaaslabs123@dev
 #   RABBITMQ_VHOST       default: /
 #
-# Last audited: 2026-03-19
+# Last audited: 2026-03-23
 # Services covered:
 #   padosme-auth-service, padosme-user-profile-service, padosme-seller-service,
 #   mobile-sms-service, padosme-notification-service, padosme-rating-service,
 #   padosme-analytics-service, padosme-channel-service, padosme-catalogue-service,
 #   padosme-wallet-service, padosme-coupon-service, padosme-discovery-service,
-#   ledgers-cloud-connect-service
+#   ledgers-cloud-connect-service, padosme-indexing-service
 
 set -euo pipefail
 
@@ -199,9 +199,10 @@ fi
 #   auth-service            -> otp.events      -> mobile-sms-service
 #   auth-service            -> user.events     -> user-profile-service, rating-service
 #   user-profile-service    -> profile.events  -> seller-service
-#   seller-service          -> padosme.events   -> notification-service (+ future auth consumer)
-#   catalogue-service       -> catalog.events  -> rating-service, analytics-service
-#   rating-service          -> rating.events   -> analytics-service
+#   seller-service          -> padosme.events  -> notification-service, indexing-service
+#   seller-service          -> location.events -> indexing-service
+#   rating-service          -> rating.events   -> analytics-service, indexing-service
+#   catalogue-service       -> catalog.events  -> rating-service, analytics-service, indexing-service
 #   channel-service         -> channel.events  -> analytics-service
 #   wallet-service          -> wallet.events   -> analytics-service
 #   coupon-service          -> coupon.events   -> analytics-service
@@ -227,6 +228,7 @@ declare_exchange "coupon.events"
 declare_exchange "analytics.events"
 declare_exchange "discovery.events"
 declare_exchange "subscription.events"
+declare_exchange "location.events"
 
 # Channel-service expects these specific exchange names
 declare_exchange "padosme.channel"
@@ -263,6 +265,9 @@ declare_exchange "seller-service.dlx"      "fanout"
 
 # sms-service DLX (fanout)
 declare_exchange "sms-service.dlx"         "fanout"
+
+# indexing-service DLX (fanout — all 4 consumer DLQs)
+declare_exchange "indexing-service.dlx"    "fanout"
 
 # ledgers DLX
 declare_exchange "ledgers.exchange.dlx"    "topic"
@@ -313,6 +318,20 @@ declare_queue "analytics.ingest" \
 declare_queue "padosme-channel-service" \
   '{"x-dead-letter-exchange":"padosme.dlx"}'
 
+# --- padosme-indexing-service ---
+# 4 independent consumer queues, one per upstream exchange domain, each with DLX
+declare_queue "indexing.seller.events" \
+  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+
+declare_queue "indexing.location.events" \
+  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+
+declare_queue "indexing.catalog.events" \
+  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+
+declare_queue "indexing.rating.events" \
+  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+
 # --- discovery-service ---
 # Internal queues using default exchange (direct queue-name routing)
 declare_queue "search.requested"
@@ -358,6 +377,12 @@ declare_queue "analytics.ingest.dlq"
 
 # channel-service DLQ
 declare_queue "padosme-channel-service.dlq"
+
+# indexing-service DLQs (one per consumer queue)
+declare_queue "indexing.dlq.seller"
+declare_queue "indexing.dlq.location"
+declare_queue "indexing.dlq.catalog"
+declare_queue "indexing.dlq.rating"
 
 # ledgers DLQs (one per queue type)
 declare_queue "dead.requests"
@@ -420,6 +445,26 @@ declare_binding "padosme.seller" "padosme-channel-service" "seller.created"
 declare_binding "padosme.seller" "padosme-channel-service" "seller.deleted"
 declare_binding "padosme.auth"   "padosme-channel-service" "user.deleted"
 
+# ---- padosme-indexing-service ----
+# padosme.events: seller lifecycle events
+declare_binding "padosme.events" "indexing.seller.events" "seller.verified"
+declare_binding "padosme.events" "indexing.seller.events" "seller.suspended"
+declare_binding "padosme.events" "indexing.seller.events" "seller.reactivated"
+declare_binding "padosme.events" "indexing.seller.events" "seller.profile.updated"
+
+# location.events: geo and presence updates
+declare_binding "location.events" "indexing.location.events" "seller.location.updated"
+declare_binding "location.events" "indexing.location.events" "seller.presence.changed"
+
+# catalog.events: item and catalogue updates
+declare_binding "catalog.events" "indexing.catalog.events" "catalog.updated"
+declare_binding "catalog.events" "indexing.catalog.events" "item.created"
+declare_binding "catalog.events" "indexing.catalog.events" "item.updated"
+declare_binding "catalog.events" "indexing.catalog.events" "item.deleted"
+
+# rating.events: rating updates
+declare_binding "rating.events" "indexing.rating.events" "seller.rating.updated"
+
 # ---- ledgers-cloud-connect-service ----
 declare_binding "ledgers.exchange" "ledgers.requests"              "request.*"
 declare_binding "ledgers.exchange" "ledgers.responses"             "response.*"
@@ -455,6 +500,12 @@ declare_binding "analytics.dlq" "analytics.ingest.dlq" "analytics.ingest.dlq"
 # channel-service DLX -> DLQ (wildcard)
 declare_binding "padosme.dlx" "padosme-channel-service.dlq" "#"
 
+# indexing-service DLX -> DLQs (fanout, routing key ignored)
+declare_binding "indexing-service.dlx" "indexing.dlq.seller"   ""
+declare_binding "indexing-service.dlx" "indexing.dlq.location" ""
+declare_binding "indexing-service.dlx" "indexing.dlq.catalog"  ""
+declare_binding "indexing-service.dlx" "indexing.dlq.rating"   ""
+
 # ledgers DLX -> DLQs
 declare_binding "ledgers.exchange.dlx" "dead.requests"     "dead.requests"
 declare_binding "ledgers.exchange.dlx" "dead.responses"    "dead.responses"
@@ -480,9 +531,9 @@ fi
 
 echo ""
 echo -e "${DIM}Topology summary:${RESET}"
-echo    "  17 exchanges (13 business domain + 4 DLX/retry)"
-echo    "  27 queues (15 main + 12 dead-letter)"
-echo    "  39 bindings"
+echo    "  19 exchanges (15 business domain + 4 DLX/retry)"
+echo    "  35 queues (19 main + 16 dead-letter)"
+echo    "  54 bindings"
 echo ""
 echo -e "${DIM}Known gaps (require code changes, not setup changes):${RESET}"
 echo    "  - analytics-service consumer binds to 'auth.events' but auth-service"
@@ -493,6 +544,6 @@ echo    "  - analytics-service expects 'coupon.events' but coupon-service"
 echo    "    publishes to 'padosme.events'. Both exchanges are declared."
 echo    "  - subscription-service uses Redis Streams, not RMQ. The"
 echo    "    'subscription.events' exchange is declared for future migration."
-echo    "  - padosme.events: seller-service publishes seller.requested +"
-echo    "    seller.verified but no service consumes them yet."
+echo    "  - seller-service publishes seller.requested — no consumer declared"
+echo    "    yet (pending admin workflow service)."
 echo ""
