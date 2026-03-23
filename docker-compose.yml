@@ -179,17 +179,27 @@ services:
     ports:
       - "27017:27017"
     environment:
+<<<<<<< HEAD
       - MONGO_INITDB_ROOT_USERNAME=padosme
       - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123@dev
+=======
+      - MONGO_INITDB_ROOT_USERNAME=mongodb
+      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123
+      - MONGO_PACKAGE=mongodb-org
+      - MONGO_REPO=repo.mongodb.org
+>>>>>>> 1a33d62 (mongodb fix)
     volumes:
-      - mongodb-data:/data/db
+      - common_mongodb-data:/data/db:rw
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 2
     networks:
-      - padosme-network
+      padosme-network:
+        aliases:
+          - padosme-mongodb
+          - mongodb
 
 networks:
   padosme-network:
@@ -204,5 +214,6 @@ volumes:
   pgadmin-data:
   redisinsight-data:
   ollama-data:
-  mongodb-data:
+  common_mongodb-data:
+    name: common_mongodb-data
 

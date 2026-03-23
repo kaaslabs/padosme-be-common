@@ -49,3 +49,8 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:11434:11434"
+
+  mongodb:
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
