@@ -38,6 +38,9 @@ func NewPublisher(ctx context.Context, cfg PublisherConfig, logger *zap.Logger) 
 	if cfg.ExchangeType == "" {
 		cfg.ExchangeType = "topic"
 	}
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	p := &Publisher{cfg: cfg, logger: logger}
 	if err := p.connect(); err != nil {
 		return nil, fmt.Errorf("rabbitmq publisher: initial connect to %q: %w", cfg.Exchange, err)

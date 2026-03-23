@@ -91,6 +91,14 @@ func RequireAuth(secret string) gin.HandlerFunc {
 			}
 			return
 		}
+		if claims.UserID == uuid.Nil {
+			abortUnauthorized(c, "token missing user_id")
+			return
+		}
+		if claims.UserType != UserTypeUser && claims.UserType != UserTypeSeller && claims.UserType != UserTypeAdmin {
+			abortUnauthorized(c, "token missing or invalid user_type")
+			return
+		}
 		c.Set(ContextKeyUserID, claims.UserID)
 		c.Set(ContextKeyUserType, claims.UserType)
 		c.Set(ContextKeyLang, claims.LanguagePreference)

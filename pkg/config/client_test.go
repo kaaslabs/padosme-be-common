@@ -29,32 +29,35 @@ func TestStaticSource_Load(t *testing.T) {
 
 // --- Watcher getters ---
 
-func newTestWatcher(values map[string]string) *Watcher {
+func newTestWatcher(t *testing.T, values map[string]string) *Watcher {
+	t.Helper()
 	logger, _ := zap.NewDevelopment()
-	return NewWatcher(
+	w, err := NewWatcher(
 		NewStaticSource(values),
 		nil,
 		10*time.Minute,
 		logger,
 	)
+	require.NoError(t, err)
+	return w
 }
 
 func TestWatcher_Get(t *testing.T) {
-	w := newTestWatcher(map[string]string{"foo": "bar"})
+	w := newTestWatcher(t, map[string]string{"foo": "bar"})
 	w.Set("foo", "bar")
 	assert.Equal(t, "bar", w.Get("foo"))
 	assert.Equal(t, "", w.Get("missing"))
 }
 
 func TestWatcher_GetString(t *testing.T) {
-	w := newTestWatcher(nil)
+	w := newTestWatcher(t, nil)
 	w.Set("lang", "hi")
 	assert.Equal(t, "hi", w.GetString("lang", "en"))
 	assert.Equal(t, "en", w.GetString("missing", "en"))
 }
 
 func TestWatcher_GetInt(t *testing.T) {
-	w := newTestWatcher(nil)
+	w := newTestWatcher(t, nil)
 	w.Set("timeout", "30")
 	assert.Equal(t, 30, w.GetInt("timeout", 0))
 	assert.Equal(t, 99, w.GetInt("missing", 99))
@@ -63,7 +66,7 @@ func TestWatcher_GetInt(t *testing.T) {
 }
 
 func TestWatcher_GetBool(t *testing.T) {
-	w := newTestWatcher(nil)
+	w := newTestWatcher(t, nil)
 	for _, v := range []string{"true", "1", "yes", "TRUE", "YES"} {
 		w.Set("flag", v)
 		assert.True(t, w.GetBool("flag", false), "expected true for %q", v)
@@ -77,7 +80,7 @@ func TestWatcher_GetBool(t *testing.T) {
 }
 
 func TestWatcher_Set(t *testing.T) {
-	w := newTestWatcher(nil)
+	w := newTestWatcher(t, nil)
 	w.Set("key", "value1")
 	assert.Equal(t, "value1", w.Get("key"))
 	w.Set("key", "value2")
@@ -88,12 +91,13 @@ func TestWatcher_Set(t *testing.T) {
 
 func TestWatcher_Start_LoadsOnStart(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
-	w := NewWatcher(
+	w, err := NewWatcher(
 		NewStaticSource(map[string]string{"k": "v"}),
 		[]string{"k"},
 		1*time.Hour,
 		logger,
 	)
+	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -116,7 +120,8 @@ func TestWatcher_Start_RefreshesOnInterval(t *testing.T) {
 	src := &countingSource{values: map[string]string{"x": "1"}, counter: &counter}
 
 	logger, _ := zap.NewDevelopment()
-	w := NewWatcher(src, []string{"x"}, 50*time.Millisecond, logger)
+	w, err := NewWatcher(src, []string{"x"}, 50*time.Millisecond, logger)
+	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()

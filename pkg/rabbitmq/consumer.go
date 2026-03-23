@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -44,6 +45,9 @@ func NewConsumer(cfg ConsumerConfig, handler MessageHandler, logger *zap.Logger)
 	}
 	if cfg.PrefetchCount == 0 {
 		cfg.PrefetchCount = 1
+	}
+	if logger == nil {
+		logger = zap.NewNop()
 	}
 	return &Consumer{cfg: cfg, handler: handler, logger: logger}
 }
@@ -142,7 +146,7 @@ func (c *Consumer) handleDelivery(ctx context.Context, msg amqp.Delivery) {
 	switch {
 	case err == nil:
 		msg.Ack(false)
-	case err == ErrRequeue:
+	case errors.Is(err, ErrRequeue):
 		c.logger.Warn("rabbitmq: handler requested requeue",
 			zap.String("queue", c.cfg.Queue),
 		)

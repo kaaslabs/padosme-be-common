@@ -35,14 +35,18 @@ type Watcher struct {
 }
 
 // NewWatcher creates a Watcher. Call Start(ctx) to begin periodic refresh.
-func NewWatcher(source ConfigSource, keys []string, interval time.Duration, logger *zap.Logger) *Watcher {
+// Returns an error if interval is not positive.
+func NewWatcher(source ConfigSource, keys []string, interval time.Duration, logger *zap.Logger) (*Watcher, error) {
+	if interval <= 0 {
+		return nil, fmt.Errorf("config watcher: interval must be positive, got %s", interval)
+	}
 	return &Watcher{
 		source:   source,
 		keys:     keys,
 		interval: interval,
 		logger:   logger,
 		values:   make(map[string]string),
-	}
+	}, nil
 }
 
 // Start performs an immediate load, then refreshes on the configured interval.
@@ -150,6 +154,12 @@ func (w *Watcher) reload(ctx context.Context) error {
 		return err
 	}
 	w.mu.Lock()
+	// Remove keys that disappeared from the source.
+	for _, k := range w.keys {
+		if _, exists := vals[k]; !exists {
+			delete(w.values, k)
+		}
+	}
 	for k, v := range vals {
 		w.values[k] = v
 	}

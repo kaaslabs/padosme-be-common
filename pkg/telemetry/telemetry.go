@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"os"
+	"strconv"
 
 	"go.opentelemetry.io/contrib/bridges/otelzap"
 	"go.opentelemetry.io/otel"
@@ -28,6 +29,7 @@ type Config struct {
 	ServiceName  string
 	Environment  string
 	Version      string
+	SampleRate   float64 // 0.0–1.0; defaults to 0.1 (10%) if unset
 }
 
 // DefaultConfig returns default telemetry configuration
@@ -40,6 +42,7 @@ func DefaultConfig(serviceName string) Config {
 		ServiceName:  getEnv("OTEL_SERVICE_NAME", serviceName),
 		Environment:  getEnv("OTEL_ENVIRONMENT", "development"),
 		Version:      getEnv("SERVICE_VERSION", "1.0.0"),
+		SampleRate:   getEnvFloat("OTEL_TRACE_SAMPLE_RATE", 0.1),
 	}
 }
 
@@ -163,7 +166,7 @@ func initTracerProvider(ctx context.Context, cfg Config, res *resource.Resource)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(cfg.SampleRate)),
 	)
 
 	return tp, nil
@@ -243,6 +246,15 @@ func createLogger(cfg Config, lp *sdklog.LoggerProvider) *zap.Logger {
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value, exists := os.LookupEnv(key); exists {
+		if f, err := strconv.ParseFloat(value, 64); err == nil {
+			return f
+		}
 	}
 	return defaultValue
 }

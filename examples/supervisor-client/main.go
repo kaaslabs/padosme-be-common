@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kaaslabs/padosme-be-common/v2/pkg/worker"
+	"github.com/kaaslabs/padosme-be-common/v3/pkg/worker"
 	"go.uber.org/zap"
 )
 
