@@ -45,14 +45,9 @@ jobs:
           script: |
             cd ${{ secrets.CLOUD_DEPLOY_PATH }}
 
-            # Bring down compose stack and remove orphans
+            # Bring down only THIS compose stack and remove orphans
+            # (does NOT affect other padosme services on the same host)
             docker compose -f docker-compose.yml down --remove-orphans || true
-
-            # Force-remove any remaining padosme containers (exited, unhealthy, etc.)
-            CONTAINERS=$(docker ps -aq --filter "name=padosme-")
-            if [ -n "$CONTAINERS" ]; then
-              docker rm -f $CONTAINERS
-            fi
 
             # Ensure the shared network exists
             docker network create padosme-network 2>/dev/null || true
