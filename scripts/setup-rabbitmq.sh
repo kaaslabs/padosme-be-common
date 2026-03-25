@@ -11,8 +11,8 @@
 # Environment variables (all optional, defaults match docker-compose.yml):
 #   RABBITMQ_HOST        default: localhost
 #   RABBITMQ_MGMT_PORT   default: 15673
-#   RABBITMQ_USER        default: cto
-#   RABBITMQ_PASSWORD    default: kaaslabs123@dev
+#   RABBITMQ_USER        default: deploy 
+#   RABBITMQ_PASSWORD    default: Kaas-Labs 
 #   RABBITMQ_VHOST       default: /
 #
 # Last audited: 2026-03-23
@@ -30,8 +30,8 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 HOST="${RABBITMQ_HOST:-localhost}"
 PORT="${RABBITMQ_MGMT_PORT:-15673}"
-USER="${RABBITMQ_USER:-cto}"
-PASS="${RABBITMQ_PASSWORD:-kaaslabs123@dev}"
+USER="${RABBITMQ_USER:-deploy}"
+PASS="${RABBITMQ_PASSWORD:-Kaas-Labs}"
 VHOST="${RABBITMQ_VHOST:-/}"
 DRY_RUN=false
 

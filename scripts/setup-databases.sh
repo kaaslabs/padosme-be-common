@@ -15,8 +15,8 @@
 # Environment variables (all optional):
 #   PGHOST        default: localhost
 #   PGPORT        default: 5434
-#   PGUSER        default: padosme
-#   PGPASSWORD    default: kaaslabs123@dev
+#   PGUSER        default: deploy 
+#   PGPASSWORD    default: Kaas-Labs 
 #
 # Production (/opt/padosme):
 #   Each service's migrations/ folder is expected at:
@@ -36,8 +36,8 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5434}"
-PGUSER="${PGUSER:-padosme}"
-PGPASSWORD="${PGPASSWORD:-kaaslabs123@dev}"
+PGUSER="${PGUSER:-deploy}"
+PGPASSWORD="${PGPASSWORD:-Kaas-Labs}"
 export PGPASSWORD
 
 DRY_RUN=false

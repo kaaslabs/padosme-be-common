@@ -77,7 +77,7 @@ echo ""
 
 echo "5. Access URLs"
 echo "--------------"
-echo "Grafana:    http://localhost:3000 (admin/kaaslabs123)"
+echo "Grafana:    http://localhost:3000 (admin/Kaas-Labs)"
 echo "Prometheus: http://localhost:9090"
 echo "Jaeger:     http://localhost:16686"
 echo "OTLP gRPC:  localhost:4317"

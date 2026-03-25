@@ -8,8 +8,8 @@ services:
     ports:
       - "5434:5432"
     environment:
-      - POSTGRES_USER=padosme
-      - POSTGRES_PASSWORD=kaaslabs123@dev
+      - POSTGRES_USERA=deploy
+      - POSTGRES_PASSWORD=Kaas-Labs
       - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -48,8 +48,8 @@ services:
       - "5673:5672"
       - "15673:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=cto
-      - RABBITMQ_DEFAULT_PASS=kaaslabs123@dev
+      - RABBITMQ_DEFAULT_USER=deploy
+      - RABBITMQ_DEFAULT_PASS=Kaas-Labs
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -111,7 +111,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=kaaslabs123@dev
+      - GF_SECURITY_ADMIN_PASSWORD=Kaas-Labs
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -128,7 +128,7 @@ services:
       - "8000:80"
     environment:
       - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
-      - PGADMIN_DEFAULT_PASSWORD=kaaslabs123@dev
+      - PGADMIN_DEFAULT_PASSWORD=Kaas-Labs
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     volumes:
@@ -181,8 +181,8 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=padosme
-      - MONGO_INITDB_ROOT_PASSWORD=kaaslabs123@dev
+      - MONGO_INITDB_ROOT_USERNAME=deploy
+      - MONGO_INITDB_ROOT_PASSWORD=Kaas-Labs
     volumes:
       - common_mongodb-data:/data/db:rw
     healthcheck:

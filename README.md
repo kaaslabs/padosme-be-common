@@ -58,7 +58,7 @@ The following management interfaces are automatically available:
 - **RedisInsight**: http://localhost:5540
 
 **Observability:**
-- **Grafana**: http://localhost:3000 (admin/kaaslabs123)
+- **Grafana**: http://localhost:3000 (admin/Kaas-Labs)
 - **Prometheus**: http://localhost:9090
 - **Jaeger**: http://localhost:16686
 
@@ -127,17 +127,17 @@ Services should use these connection strings:
 
 | Service              | Host                      | Port       | Default Credentials        |
 |----------------------|---------------------------|------------|----------------------------|
-| PostgreSQL           | padosme-postgres          | 5432       | postgres/postgres          |
-| pgAdmin4             | localhost                 | 8000       | admin@padosme.local/admin  |
+| PostgreSQL           | padosme-postgres          | 5432       | deploy/Kaas-Labs           |
+| pgAdmin4             | localhost                 | 8000       | cto@kaaslabs.com/Kaas-Labs |
 | Redis                | padosme-redis             | 6379       | -                          |
 | RedisInsight         | localhost                 | 5540       | -                          |
-| RabbitMQ             | padosme-rabbitmq          | 5672       | guest/guest                |
-| RabbitMQ Management  | padosme-rabbitmq          | 15672      | guest/guest                |
+| RabbitMQ             | padosme-rabbitmq          | 5672       | deploy/Kaas-Labs           |
+| RabbitMQ Management  | padosme-rabbitmq          | 15672      | deploy/Kaas-Labs           |
 | Jaeger               | padosme-jaeger            | 16686      | -                          |
 | OTLP Collector gRPC  | padosme-otel-collector    | 4317       | -                          |
 | OTLP Collector HTTP  | padosme-otel-collector    | 4318       | -                          |
 | Prometheus           | padosme-prometheus        | 9090       | -                          |
-| Grafana              | padosme-grafana           | 3000       | admin/kaaslabs123          |
+| Grafana              | padosme-grafana           | 3000       | admin/Kaas-Labs            |
 
 ## Cloud Deployment (CI/CD)
 
