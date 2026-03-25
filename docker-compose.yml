@@ -8,14 +8,14 @@ services:
     ports:
       - "5434:5432"
     environment:
-      - POSTGRES_USERA=deploy
+      - POSTGRES_USER=deploy
       - POSTGRES_PASSWORD=Kaas-Labs
       - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U deploy"]
       interval: 5s
       timeout: 5s
       retries: 2
