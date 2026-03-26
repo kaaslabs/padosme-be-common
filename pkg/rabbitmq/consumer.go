@@ -16,8 +16,9 @@ type ConsumerConfig struct {
 	ExchangeType  string // defaults to "topic"
 	Queue         string
 	RoutingKey    string
-	DLXExchange   string // dead-letter exchange; leave empty to skip DLX
-	PrefetchCount int    // QoS prefetch count; defaults to 1
+	DLXExchange     string // dead-letter exchange; leave empty to skip DLX
+	DLXExchangeType string // DLX exchange type; defaults to "fanout"
+	PrefetchCount   int    // QoS prefetch count; defaults to 1
 }
 
 // MessageHandler processes a single AMQP delivery body.
@@ -42,6 +43,9 @@ type Consumer struct {
 func NewConsumer(cfg ConsumerConfig, handler MessageHandler, logger *zap.Logger) *Consumer {
 	if cfg.ExchangeType == "" {
 		cfg.ExchangeType = "topic"
+	}
+	if cfg.DLXExchangeType == "" {
+		cfg.DLXExchangeType = "fanout"
 	}
 	if cfg.PrefetchCount == 0 {
 		cfg.PrefetchCount = 1
@@ -118,7 +122,7 @@ func (c *Consumer) declareTopology(ch *amqp.Channel) error {
 	queueArgs := amqp.Table{}
 	if c.cfg.DLXExchange != "" {
 		if err := ch.ExchangeDeclare(
-			c.cfg.DLXExchange, "topic",
+			c.cfg.DLXExchange, c.cfg.DLXExchangeType,
 			true, false, false, false, nil,
 		); err != nil {
 			return fmt.Errorf("rabbitmq consumer: declare DLX %q: %w", c.cfg.DLXExchange, err)
