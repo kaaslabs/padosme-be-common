@@ -35,30 +35,35 @@ exporters:
     const_labels:
       environment: development
 
-  # Logging exporter for debugging
-  logging:
-    loglevel: info
+  # Debug exporter for debugging (replaces deprecated 'logging')
+  debug:
+    verbosity: basic
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlp/jaeger, logging]
+      exporters: [otlp/jaeger, debug]
 
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [prometheus, logging]
+      exporters: [prometheus, debug]
 
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [logging]
+      exporters: [debug]
 
   telemetry:
     logs:
       level: info
     metrics:
       level: detailed
-      address: 0.0.0.0:8888
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
