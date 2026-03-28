@@ -48,8 +48,15 @@ func NewLoggerMiddleware(logger *zap.Logger) *LoggerMiddleware {
 // Logger returns a middleware that logs requests and records HTTP metrics
 func (m *LoggerMiddleware) Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := time.Now()
 		path := c.Request.URL.Path
+
+		// Skip logging for health checks to reduce noise.
+		if path == "/health" {
+			c.Next()
+			return
+		}
+
+		start := time.Now()
 		query := c.Request.URL.RawQuery
 
 		c.Next()
