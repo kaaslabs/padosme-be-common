@@ -3,7 +3,7 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     container_name: padosme-postgres
     ports:
       - "5434:5432"
@@ -19,11 +19,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 2
+    restart: unless-stopped
     networks:
       - padosme-network
 
   redis:
-    image: redis/redis-stack-server:7.2.0-v10
+    image: redis:8.6.2-alpine
     container_name: padosme-redis
     environment:
       # Pass flags through the entrypoint so RediSearch + other modules load correctly.
@@ -38,11 +39,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 2
+    restart: unless-stopped
     networks:
       - padosme-network
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.13-management
     container_name: padosme-rabbitmq
     ports:
       - "5673:5672"
@@ -50,18 +52,22 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=deploy
       - RABBITMQ_DEFAULT_PASS=Kaas-Labs
+      - RABBITMQ_VM_MEMORY_HIGH_WATERMARK=0.7
+      - RABBITMQ_DISK_FREE_LIMIT=500MB
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      test: ["CMD", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
       interval: 10s
       timeout: 5s
-      retries: 2
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
     networks:
       - padosme-network
 
   jaeger:
-    image: jaegertracing/all-in-one:1.53
+    image: jaegertracing/jaeger:2.16.0
     container_name: padosme-jaeger
     ports:
       - "16686:16686"  # Jaeger UI
@@ -72,7 +78,7 @@ services:
       - padosme-network
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.96.0
+    image: otel/opentelemetry-collector-contrib:0.148.0
     container_name: padosme-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
@@ -88,7 +94,7 @@ services:
       - padosme-network
 
   prometheus:
-    image: prom/prometheus:v2.50.1
+    image: prom/prometheus:v3.10.0
     container_name: padosme-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -105,7 +111,7 @@ services:
       - padosme-network
 
   grafana:
-    image: grafana/grafana:10.3.3
+    image: grafana/grafana:12.4.2
     container_name: padosme-grafana
     ports:
       - "3000:3000"
@@ -122,7 +128,7 @@ services:
       - padosme-network
 
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.13
     container_name: padosme-pgadmin
     ports:
       - "8000:80"
@@ -140,7 +146,7 @@ services:
       - padosme-network
 
   redisinsight:
-    image: redis/redisinsight:latest
+    image: redis/redisinsight:3.0.3
     container_name: padosme-redisinsight
     ports:
       - "5540:5540"
@@ -166,6 +172,7 @@ services:
       - ollama-data:/root/.ollama
     networks:
       - padosme-network
+    restart: unless-stopped
     # deploy:
     #   resources:
     #     reservations:
@@ -175,7 +182,7 @@ services:
     #           capabilities: [gpu]
 
   mongodb:
-    image: mongo:7
+    image: mongo:8.0
     container_name: padosme-mongodb
     restart: unless-stopped
     ports:
@@ -190,6 +197,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 2
+    restart: unless-stopped
     networks:
       padosme-network:
         aliases:
