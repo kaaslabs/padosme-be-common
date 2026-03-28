@@ -52,7 +52,6 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=deploy
       - RABBITMQ_DEFAULT_PASS=Kaas-Labs
-      - RABBITMQ_VM_MEMORY_HIGH_WATERMARK=0.7
       - RABBITMQ_DISK_FREE_LIMIT=500MB
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
