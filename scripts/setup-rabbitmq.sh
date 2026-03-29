@@ -63,6 +63,7 @@ section() { echo ""; echo -e "${BOLD}$*${RESET}"; }
 
 # PUT /api/exchanges/{vhost}/{name}
 # Args: name [type]   (type defaults to "topic")
+# On HTTP 400 (PRECONDITION_FAILED, e.g. type changed), auto-deletes and retries.
 declare_exchange() {
   local name="$1"
   local type="${2:-topic}"
@@ -82,6 +83,18 @@ declare_exchange() {
     -d "$body" \
     "${BASE_URL}/exchanges/${VHOST_ENC}/${name}")
 
+  if [[ "$http_code" == "400" ]]; then
+    warn "Exchange  ${BOLD}${name}${RESET}  conflict (HTTP 400) — deleting and recreating"
+    curl -s -o /dev/null -u "${USER}:${PASS}" -X DELETE \
+      "${BASE_URL}/exchanges/${VHOST_ENC}/${name}"
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+      -u "${USER}:${PASS}" \
+      -X PUT \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "${BASE_URL}/exchanges/${VHOST_ENC}/${name}")
+  fi
+
   case $http_code in
     200|201|204) ok "Exchange  ${BOLD}${name}${RESET}  (${type}, durable)" ;;
     *) err "Exchange  ${name}  -> HTTP ${http_code}"; ERRORS=$((ERRORS + 1)) ;;
@@ -91,6 +104,9 @@ declare_exchange() {
 # PUT /api/queues/{vhost}/{name}
 # Args: name [json_arguments]
 #   json_arguments is raw JSON for x-dead-letter-exchange, x-message-ttl, etc.
+# On HTTP 400 (PRECONDITION_FAILED, e.g. queue args changed), auto-deletes
+# the queue (only if empty) and retries. Queues with messages are NOT deleted
+# to prevent data loss — the error is reported instead.
 declare_queue() {
   local name="$1"
   local args="${2:-}"
@@ -117,6 +133,30 @@ declare_queue() {
     -H "Content-Type: application/json" \
     -d "$body" \
     "${BASE_URL}/queues/${VHOST_ENC}/${name}")
+
+  if [[ "$http_code" == "400" ]]; then
+    # Check message count before deleting — refuse if queue has messages
+    local msg_count
+    msg_count=$(curl -s -u "${USER}:${PASS}" \
+      "${BASE_URL}/queues/${VHOST_ENC}/${name}" \
+      | python3 -c "import sys,json; print(json.load(sys.stdin).get('messages',0))" 2>/dev/null || echo "0")
+
+    if [[ "$msg_count" -gt 0 ]]; then
+      err "Queue     ${name}  -> conflict (HTTP 400) with ${msg_count} messages — NOT deleting (drain first)"
+      ERRORS=$((ERRORS + 1))
+      return
+    fi
+
+    warn "Queue     ${BOLD}${name}${RESET}  conflict (HTTP 400, 0 msgs) — deleting and recreating"
+    curl -s -o /dev/null -u "${USER}:${PASS}" -X DELETE \
+      "${BASE_URL}/queues/${VHOST_ENC}/${name}"
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+      -u "${USER}:${PASS}" \
+      -X PUT \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "${BASE_URL}/queues/${VHOST_ENC}/${name}")
+  fi
 
   case $http_code in
     200|201|204) ok "Queue     ${label}" ;;
