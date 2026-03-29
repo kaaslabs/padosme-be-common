@@ -366,7 +366,7 @@ declare_queue "seller-service.profile.updated" \
 # Main queue: consumes notification.*, device.token.*, notification.retry from padosme.events
 # DLX -> retry exchange (for exponential backoff retries)
 declare_queue "notification-service.notifications" \
-  '{"x-dead-letter-exchange":"padosme.retry"}'
+  '{"x-dead-letter-exchange":"padosme.retry","x-dead-letter-routing-key":"notification.retry"}'
 
 # Retry queue: messages wait here with per-message TTL then route back to padosme.events
 declare_queue "notification-service.notifications.retry" \
