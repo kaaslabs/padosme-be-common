@@ -11,15 +11,13 @@ import (
 
 func TestIntentResult_JSONRoundtrip(t *testing.T) {
 	intent := models.IntentResult{
-		Intent:          models.IntentProductSearch,
-		Category:        models.CategoryRestaurant,
-		Product:         "biryani",
-		Filters:         []string{"best"},
-		Confidence:      0.91,
-		Source:          models.SourceOntology,
-		TranslatedQuery: "best biryani near me",
-		OriginalQuery:   "ಹತ್ತಿರದ ಬಿರಿಯಾನಿ",
-		DetectedLang:    "kn",
+		Intent:     models.IntentProductSearch,
+		Category:   models.CategoryRestaurant,
+		Product:    "biryani",
+		Filters:    []string{"best"},
+		Confidence: 0.91,
+		Source:     models.SourceOntology,
+		Query:      "best biryani near me",
 	}
 
 	b, err := json.Marshal(intent)

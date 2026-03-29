@@ -3,15 +3,13 @@ package models
 // IntentResult is the shared intent object produced by padosme-query-intelligence
 // and consumed by padosme-search-api / padosme-search-engine.
 type IntentResult struct {
-	Intent          string   `json:"intent"`
-	Category        string   `json:"category"`
-	Product         string   `json:"product"`
-	Filters         []string `json:"filters"`
-	Confidence      float64  `json:"confidence"`
-	Source          string   `json:"source"`
-	TranslatedQuery string   `json:"translated_query"`
-	OriginalQuery   string   `json:"original_query"`
-	DetectedLang    string   `json:"detected_lang"`
+	Intent     string   `json:"intent"`
+	Category   string   `json:"category"`
+	Product    string   `json:"product"`
+	Filters    []string `json:"filters"`
+	Confidence float64  `json:"confidence"`
+	Source     string   `json:"source"`
+	Query      string   `json:"query"`
 }
 
 // Valid intent type values.
@@ -25,7 +23,6 @@ const (
 const (
 	SourceCache    = "cache"
 	SourceOntology = "ontology"
-	SourceLLM      = "llm"
 	SourceKeyword  = "keyword"
 )
 
