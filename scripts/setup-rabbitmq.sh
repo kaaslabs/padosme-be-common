@@ -15,7 +15,7 @@
 #   RABBITMQ_PASSWORD    default: Kaas-Labs 
 #   RABBITMQ_VHOST       default: /
 #
-# Last audited: 2026-03-23
+# Last audited: 2026-03-29
 # Services covered:
 #   padosme-auth-service, padosme-user-profile-service, padosme-seller-service,
 #   mobile-sms-service, padosme-notification-service, padosme-rating-service,
@@ -151,6 +151,33 @@ declare_binding() {
   esac
 }
 
+# POST /api/bindings/{vhost}/e/{source}/e/{destination}
+declare_exchange_binding() {
+  local source="$1"
+  local destination="$2"
+  local routing_key="${3:-#}"
+  local body
+  body=$(printf '{"routing_key":"%s","arguments":{}}' "$routing_key")
+
+  if $DRY_RUN; then
+    dry "Ex->Ex    ${BOLD}${source}${RESET} -> ${routing_key} -> ${BOLD}${destination}${RESET}"
+    return
+  fi
+
+  local http_code
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -u "${USER}:${PASS}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${BASE_URL}/bindings/${VHOST_ENC}/e/${source}/e/${destination}")
+
+  case $http_code in
+    200|201|204) ok "Ex->Ex    ${BOLD}${source}${RESET} -> ${routing_key} -> ${BOLD}${destination}${RESET}" ;;
+    *) err "Ex->Ex    ${source} -> ${routing_key} -> ${destination}  -> HTTP ${http_code}"; ERRORS=$((ERRORS + 1)) ;;
+  esac
+}
+
 # ---------------------------------------------------------------------------
 # Wait for RabbitMQ
 # ---------------------------------------------------------------------------
@@ -159,12 +186,18 @@ wait_for_rabbitmq() {
   local attempt=0
 
   info "Waiting for RabbitMQ at ${HOST}:${PORT} ..."
-  until curl -s -o /dev/null -u "${USER}:${PASS}" "${BASE_URL}/overview"; do
+  while true; do
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" -u "${USER}:${PASS}" "${BASE_URL}/overview" || true)
+    if [[ "$http_code" == "200" ]]; then
+      break
+    fi
     attempt=$((attempt + 1))
     if [[ $attempt -ge $max_attempts ]]; then
-      err "RabbitMQ not reachable after ${max_attempts} attempts. Is it running?"
+      err "RabbitMQ management API not ready after ${max_attempts} attempts."
       err "  Expected: http://${HOST}:${PORT}"
       err "  User:     ${USER}"
+      err "  Last HTTP: ${http_code:-curl-failed}"
       exit 1
     fi
     echo -n "."
@@ -203,7 +236,7 @@ fi
 #   seller-service          -> location.events -> indexing-service
 #   rating-service          -> rating.events   -> analytics-service, indexing-service
 #   catalogue-service       -> catalog.events  -> rating-service, analytics-service, indexing-service
-#   channel-service         -> channel.events  -> analytics-service
+#   channel-service         -> padosme.channel -> channel.events -> analytics-service
 #   wallet-service          -> wallet.events   -> analytics-service
 #   coupon-service          -> coupon.events   -> notification-service, wallet-service, analytics-service
 #   subscription-service    -> subscription.events -> coupon-service, wallet-service, analytics-service
@@ -211,7 +244,7 @@ fi
 #   discovery-service       -> discovery.events -> analytics-service
 #   seller-service          -> seller.events   -> rating-service, analytics-service, channel-service
 #   padosme.events (seller) -> coupon-service (seller.verified)
-#   ledgers-cloud-connect   -> ledgers.exchange -> ledgers internal
+#   subscription-service    -> zoho.exchange -> zoho/ledgers integration
 # =========================================================================
 
 section "1. EXCHANGES -- Business Domain"
@@ -230,14 +263,15 @@ declare_exchange "analytics.events"
 declare_exchange "discovery.events"
 declare_exchange "subscription.events"
 declare_exchange "location.events"
+declare_exchange "config.events"
 
 # Channel-service expects these specific exchange names
 declare_exchange "padosme.channel"
 declare_exchange "padosme.seller"
 declare_exchange "padosme.auth"
 
-# Ledgers service
-declare_exchange "ledgers.exchange"
+# Zoho/ledgers service
+declare_exchange "zoho.exchange"
 
 # =========================================================================
 # 2. EXCHANGES — Dead Letter / Retry (various types)
@@ -247,10 +281,12 @@ section "2. EXCHANGES -- Dead Letter / Retry"
 
 # user-profile-service DLX (fanout — all nacked msgs go to one DLQ)
 declare_exchange "profile-service.dlx"     "fanout"
+declare_exchange "profile-service.seller.dlx" "fanout"
 
 # notification-service retry + DLQ (direct — routing-key based)
 declare_exchange "padosme.retry"           "direct"
 declare_exchange "padosme.dlq"             "direct"
+declare_exchange "padosme.events.dlx"      "topic"
 
 # channel-service DLX (topic — wildcard binding)
 declare_exchange "padosme.dlx"             "topic"
@@ -276,11 +312,23 @@ declare_exchange "wallet-service.dlx"      "fanout"
 # subscription-service DLX (fanout)
 declare_exchange "subscription-service.dlx" "fanout"
 
-# indexing-service DLX (fanout — all 4 consumer DLQs)
-declare_exchange "indexing-service.dlx"    "fanout"
+# indexing-service DLX (direct — routing key selects the correct DLQ per consumer)
+declare_exchange "indexing-service.dlx"    "direct"
 
-# ledgers DLX
-declare_exchange "ledgers.exchange.dlx"    "topic"
+# discovery-service DLX (direct — for search.requested dead letters)
+declare_exchange "search.dlx"             "direct"
+
+# notification-service DLQ exchange (fanout — exhausted retries)
+declare_exchange "notification.dlq"       "fanout"
+
+# payment-service (topic — payment lifecycle events)
+declare_exchange "payment.events"
+
+# config-service DLX
+declare_exchange "config.events.dlx"       "topic"
+
+# Zoho/ledgers DLX
+declare_exchange "zoho.exchange.dlx"       "topic"
 
 # =========================================================================
 # 3. QUEUES — Main Service Queues (with DLX arguments where applicable)
@@ -297,6 +345,17 @@ declare_queue "otp.sent" \
 # Consumes user.created from user.events
 declare_queue "profile-service.user.created" \
   '{"x-dead-letter-exchange":"profile-service.dlx"}'
+
+# Consumes seller.verified from padosme.events
+declare_queue "profile-service.seller.verified" \
+  '{"x-dead-letter-exchange":"profile-service.seller.dlx"}'
+
+# --- auth-service ---
+# Consumes seller lifecycle events from padosme.events
+declare_queue "auth-service.seller.verified" \
+  '{"x-dead-letter-exchange":"padosme.events.dlx"}'
+declare_queue "auth-service.seller.requested" \
+  '{"x-dead-letter-exchange":"padosme.events.dlx"}'
 
 # --- seller-service ---
 # Consumes profile.updated from profile.events
@@ -330,21 +389,23 @@ declare_queue "padosme-channel-service" \
 
 # --- padosme-indexing-service ---
 # 4 independent consumer queues, one per upstream exchange domain, each with DLX
+# Uses direct DLX with per-queue routing keys so failures route to the correct DLQ only.
 declare_queue "indexing.seller.events" \
-  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+  '{"x-dead-letter-exchange":"indexing-service.dlx","x-dead-letter-routing-key":"dlq.seller"}'
 
 declare_queue "indexing.location.events" \
-  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+  '{"x-dead-letter-exchange":"indexing-service.dlx","x-dead-letter-routing-key":"dlq.location"}'
 
 declare_queue "indexing.catalog.events" \
-  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+  '{"x-dead-letter-exchange":"indexing-service.dlx","x-dead-letter-routing-key":"dlq.catalog"}'
 
 declare_queue "indexing.rating.events" \
-  '{"x-dead-letter-exchange":"indexing-service.dlx"}'
+  '{"x-dead-letter-exchange":"indexing-service.dlx","x-dead-letter-routing-key":"dlq.rating"}'
 
 # --- discovery-service ---
-# Internal queues using default exchange (direct queue-name routing)
-declare_queue "search.requested"
+# Internal queues with DLX for failed message processing (max 3 retries in code)
+declare_queue "search.requested" \
+  '{"x-dead-letter-exchange":"search.dlx","x-dead-letter-routing-key":"search.requested"}'
 declare_queue "search.result"
 
 # --- coupon-service (consumers) ---
@@ -357,13 +418,22 @@ declare_queue "coupon.seller-events" \
   '{"x-dead-letter-exchange":"coupon-service.dlx"}'
 
 # --- notification-service (coupon domain) ---
-# Consumes coupon events from coupon.events
-declare_queue "notification.coupon-events" \
-  '{"x-dead-letter-exchange":"padosme.retry"}'
+# Consumes coupon events from coupon.events (queue name matches Go code constant)
+declare_queue "notification-service.coupon-events" \
+  '{"x-dead-letter-exchange":"padosme.retry","x-dead-letter-routing-key":"coupon.retry"}'
+
+# Retry queue for coupon events — dead-letters back to coupon.events after TTL
+declare_queue "notification-service.coupon-events.retry" \
+  '{"x-dead-letter-exchange":"coupon.events","x-dead-letter-routing-key":"coupon.redeliver"}'
 
 # --- wallet-service (coupon domain) ---
 # Consumes coupon.redeemed from coupon.events (salesman commission)
 declare_queue "wallet.coupon-events" \
+  '{"x-dead-letter-exchange":"wallet-service.dlx"}'
+
+# --- wallet-service (payment domain) ---
+# Consumes payment.success from payment.events (auto-credit wallet)
+declare_queue "wallet-service.payment.success" \
   '{"x-dead-letter-exchange":"wallet-service.dlx"}'
 
 # --- subscription-service (coupon domain) ---
@@ -371,19 +441,22 @@ declare_queue "wallet.coupon-events" \
 declare_queue "subscription.coupon-events" \
   '{"x-dead-letter-exchange":"subscription-service.dlx"}'
 
-# --- ledgers-cloud-connect-service ---
+# --- zoho/ledgers-cloud-connect-service ---
 # All queues with TTL + DLX
-declare_queue "ledgers.requests" \
-  '{"x-message-ttl":300000,"x-dead-letter-exchange":"ledgers.exchange.dlx","x-dead-letter-routing-key":"dead.requests"}'
+declare_queue "zoho.requests" \
+  '{"x-message-ttl":300000,"x-dead-letter-exchange":"zoho.exchange.dlx","x-dead-letter-routing-key":"dead.requests"}'
 
-declare_queue "ledgers.responses" \
-  '{"x-message-ttl":300000,"x-dead-letter-exchange":"ledgers.exchange.dlx","x-dead-letter-routing-key":"dead.responses"}'
+declare_queue "zoho.responses" \
+  '{"x-message-ttl":300000,"x-dead-letter-exchange":"zoho.exchange.dlx","x-dead-letter-routing-key":"dead.responses"}'
 
-declare_queue "ledgers.events" \
-  '{"x-message-ttl":600000,"x-dead-letter-exchange":"ledgers.exchange.dlx","x-dead-letter-routing-key":"dead.events"}'
+declare_queue "zoho.events" \
+  '{"x-message-ttl":600000,"x-dead-letter-exchange":"zoho.exchange.dlx","x-dead-letter-routing-key":"dead.events"}'
 
-declare_queue "ledgers.subscription.payments" \
-  '{"x-message-ttl":600000,"x-dead-letter-exchange":"ledgers.exchange.dlx","x-dead-letter-routing-key":"dead.subscription"}'
+declare_queue "zoho.subscription.payments" \
+  '{"x-message-ttl":600000,"x-dead-letter-exchange":"zoho.exchange.dlx","x-dead-letter-routing-key":"dead.subscription"}'
+
+declare_queue "zoho.bank.transactions" \
+  '{"x-message-ttl":600000,"x-dead-letter-exchange":"zoho.exchange.dlx","x-dead-letter-routing-key":"dead.bank"}'
 
 # =========================================================================
 # 4. QUEUES — Dead Letter Queues
@@ -427,11 +500,22 @@ declare_queue "indexing.dlq.location"
 declare_queue "indexing.dlq.catalog"
 declare_queue "indexing.dlq.rating"
 
-# ledgers DLQs (one per queue type)
+# discovery-service DLQ
+declare_queue "search.requested.dlq"
+
+# config-service DLQ
+declare_queue "config.events.dlq"
+
+# auth-service DLQs
+declare_queue "auth-service.seller.verified.dlq"
+declare_queue "auth-service.seller.requested.dlq"
+
+# Zoho/ledgers DLQs (one per queue type)
 declare_queue "dead.requests"
 declare_queue "dead.responses"
 declare_queue "dead.events"
 declare_queue "dead.subscription"
+declare_queue "dead.bank"
 
 # =========================================================================
 # 5. BINDINGS — Main Queue Bindings
@@ -444,6 +528,11 @@ declare_binding "otp.events" "otp.sent" "otp.requested"
 
 # ---- user.events -> profile-service.user.created (user-profile-service) ----
 declare_binding "user.events" "profile-service.user.created" "user.created"
+declare_binding "padosme.events" "profile-service.seller.verified" "seller.verified"
+
+# ---- padosme.events -> auth-service seller lifecycle queues ----
+declare_binding "padosme.events" "auth-service.seller.verified" "seller.verified"
+declare_binding "padosme.events" "auth-service.seller.requested" "seller.requested"
 
 # ---- profile.events -> seller-service.profile.updated (seller-service) ----
 declare_binding "profile.events" "seller-service.profile.updated" "profile.updated"
@@ -487,13 +576,18 @@ declare_binding "subscription.events" "analytics.ingest" "subscription.renewed"
 declare_binding "subscription.events" "coupon.subscription-events" "subscription.created"
 declare_binding "padosme.events"      "coupon.seller-events"       "seller.verified"
 
-# ---- notification-service: coupon domain events ----
-declare_binding "coupon.events" "notification.coupon-events" "coupon.created"
-declare_binding "coupon.events" "notification.coupon-events" "coupon.redeemed"
-declare_binding "coupon.events" "notification.coupon-events" "campaign.limit_reached"
+# ---- notification-service: coupon domain events (matches Go constant CouponQueue) ----
+declare_binding "coupon.events" "notification-service.coupon-events" "coupon.*"
+declare_binding "coupon.events" "notification-service.coupon-events" "campaign.*"
+
+# ---- notification-service: coupon retry topology ----
+declare_binding "padosme.retry" "notification-service.coupon-events.retry" "coupon.retry"
 
 # ---- wallet-service: coupon domain events ----
 declare_binding "coupon.events" "wallet.coupon-events" "coupon.redeemed"
+
+# ---- wallet-service: payment domain events ----
+declare_binding "payment.events" "wallet-service.payment.success" "payment.success"
 
 # ---- subscription-service: coupon domain events ----
 declare_binding "coupon.events" "subscription.coupon-events" "coupon.validated"
@@ -529,11 +623,16 @@ declare_binding "catalog.events" "indexing.catalog.events" "item.deleted"
 # rating.events: rating updates
 declare_binding "rating.events" "indexing.rating.events" "seller.rating.updated"
 
-# ---- ledgers-cloud-connect-service ----
-declare_binding "ledgers.exchange" "ledgers.requests"              "request.*"
-declare_binding "ledgers.exchange" "ledgers.responses"             "response.*"
-declare_binding "ledgers.exchange" "ledgers.events"                "event.#"
-declare_binding "ledgers.exchange" "ledgers.subscription.payments" "event.subscription.payment.*"
+# ---- zoho/ledgers-cloud-connect-service ----
+declare_binding "zoho.exchange" "zoho.requests"              "request.*"
+declare_binding "zoho.exchange" "zoho.responses"             "response.*"
+declare_binding "zoho.exchange" "zoho.events"                "event.#"
+declare_binding "zoho.exchange" "zoho.subscription.payments" "event.subscription.payment.*"
+declare_binding "zoho.exchange" "zoho.bank.transactions"     "event.bank.transaction.expense"
+
+# ---- exchange aliases / bridges ----
+# channel-service publishes to padosme.channel, while analytics consumes channel.events.
+declare_exchange_binding "padosme.channel" "channel.events" "channel.*"
 
 # =========================================================================
 # 6. BINDINGS — Dead Letter Queue Bindings
@@ -546,12 +645,13 @@ declare_binding "sms-service.dlx"     "sms-service.dead-letter"     ""
 
 # profile-service DLX -> DLQ (fanout, routing key ignored)
 declare_binding "profile-service.dlx" "profile-service.dead-letter" ""
+declare_binding "profile-service.seller.dlx" "profile-service.dead-letter" ""
 
 # seller-service DLX -> DLQ
 declare_binding "seller-service.dlx"  "seller-service.dead-letter"  ""
 
-# notification-service: retry exchange -> retry queue
-declare_binding "padosme.retry" "notification-service.notifications.retry" "notification-service.notifications.retry"
+# notification-service: retry exchange -> retry queue (must match retryBindingKey in Go code)
+declare_binding "padosme.retry" "notification-service.notifications.retry" "notification.retry"
 # notification-service: DLQ exchange -> DLQ
 declare_binding "padosme.dlq"   "notification-service.notifications.dlq"   "notification-service.notifications.dlq"
 
@@ -573,17 +673,31 @@ declare_binding "wallet-service.dlx"       "wallet-service.dead-letter"       ""
 # subscription-service DLX -> DLQ
 declare_binding "subscription-service.dlx" "subscription-service.dead-letter"  ""
 
-# indexing-service DLX -> DLQs (fanout, routing key ignored)
-declare_binding "indexing-service.dlx" "indexing.dlq.seller"   ""
-declare_binding "indexing-service.dlx" "indexing.dlq.location" ""
-declare_binding "indexing-service.dlx" "indexing.dlq.catalog"  ""
-declare_binding "indexing-service.dlx" "indexing.dlq.rating"   ""
+# indexing-service DLX -> DLQs (direct, routing key selects correct DLQ)
+declare_binding "indexing-service.dlx" "indexing.dlq.seller"   "dlq.seller"
+declare_binding "indexing-service.dlx" "indexing.dlq.location" "dlq.location"
+declare_binding "indexing-service.dlx" "indexing.dlq.catalog"  "dlq.catalog"
+declare_binding "indexing-service.dlx" "indexing.dlq.rating"   "dlq.rating"
 
-# ledgers DLX -> DLQs
-declare_binding "ledgers.exchange.dlx" "dead.requests"     "dead.requests"
-declare_binding "ledgers.exchange.dlx" "dead.responses"    "dead.responses"
-declare_binding "ledgers.exchange.dlx" "dead.events"       "dead.events"
-declare_binding "ledgers.exchange.dlx" "dead.subscription" "dead.subscription"
+# discovery-service DLX -> DLQ
+declare_binding "search.dlx" "search.requested.dlq" "search.requested"
+
+# config-service DLX -> DLQ
+declare_binding "config.events.dlx" "config.events.dlq" "#"
+
+# auth-service DLX -> DLQs
+declare_binding "padosme.events.dlx" "auth-service.seller.verified.dlq" "seller.verified"
+declare_binding "padosme.events.dlx" "auth-service.seller.requested.dlq" "seller.requested"
+
+# notification-service DLQ exchange -> shared DLQ (fanout)
+declare_binding "notification.dlq" "notification-service.notifications.dlq" ""
+
+# Zoho/ledgers DLX -> DLQs
+declare_binding "zoho.exchange.dlx" "dead.requests"     "dead.requests"
+declare_binding "zoho.exchange.dlx" "dead.responses"    "dead.responses"
+declare_binding "zoho.exchange.dlx" "dead.events"       "dead.events"
+declare_binding "zoho.exchange.dlx" "dead.subscription" "dead.subscription"
+declare_binding "zoho.exchange.dlx" "dead.bank"         "dead.bank"
 
 # =========================================================================
 # Summary
@@ -604,17 +718,12 @@ fi
 
 echo ""
 echo -e "${DIM}Topology summary:${RESET}"
-echo    "  22 exchanges (15 business domain + 7 DLX/retry)"
-echo    "  43 queues (24 main + 19 dead-letter)"
-echo    "  72 bindings"
+echo    "  Exchanges, queues, and bindings declared successfully."
 echo ""
 echo -e "${DIM}Known gaps (require code changes, not setup changes):${RESET}"
-echo    "  - analytics-service consumer binds to 'auth.events' but auth-service"
-echo    "    publishes to 'user.events'. The binding above uses 'user.events'."
-echo    "  - analytics-service expects 'channel.events' but channel-service"
-echo    "    publishes to 'padosme.channel'. Both exchanges are declared."
 echo    "  - subscription-service uses Redis Streams, not RMQ. The"
 echo    "    'subscription.events' exchange is declared for future migration."
-echo    "  - seller-service publishes seller.requested — no consumer declared"
-echo    "    yet (pending admin workflow service)."
+echo    "  - channel-service still consumes seller/user lifecycle events from"
+echo    "    padosme.seller / padosme.auth; no producer in this repo publishes"
+echo    "    to those exchanges yet."
 echo ""
