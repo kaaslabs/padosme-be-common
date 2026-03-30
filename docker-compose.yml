@@ -56,7 +56,7 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -156,29 +156,6 @@ services:
         condition: service_healthy
     networks:
       - padosme-network
-
-  # Ollama — LLM inference for padosme-ai-service (Mistral 7B intent classification).
-  # CPU-only by default. After first start, pull the model:
-  #   docker exec padosme-ollama ollama pull mistral:7b-instruct-q4_K_M
-  # Uncomment the deploy block below if the server has an NVIDIA GPU
-  # and nvidia-container-toolkit is installed.
-  ollama:
-    image: ollama/ollama:latest
-    container_name: padosme-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - padosme-network
-    restart: unless-stopped
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
   mongodb:
     image: mongo:8.0

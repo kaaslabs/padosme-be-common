@@ -24,17 +24,21 @@ type Worker struct {
 
 // Supervisor manages worker goroutines with panic recovery and automatic restart
 type Supervisor struct {
-	workers      []Worker
-	logger       *zap.Logger
-	wg           sync.WaitGroup
-	stopCh       chan struct{}
-	restartCh    chan restartRequest
-	maxRestarts  int
-	restartWait  time.Duration
-	startOnce    sync.Once
-	stopOnce     sync.Once
-	panicsTotal  metric.Int64Counter
+	workers       []Worker
+	logger        *zap.Logger
+	wg            sync.WaitGroup
+	stopCh        chan struct{}
+	restartCh     chan restartRequest
+	maxRestarts   int
+	restartWait   time.Duration
+	restartWindow time.Duration
+	startOnce     sync.Once
+	stopOnce      sync.Once
+	panicsTotal   metric.Int64Counter
 	restartsTotal metric.Int64Counter
+
+	// nowFunc is used for testing to control time. Defaults to time.Now.
+	nowFunc func() time.Time
 }
 
 type restartRequest struct {
@@ -44,8 +48,10 @@ type restartRequest struct {
 
 // SupervisorConfig holds supervisor configuration
 type SupervisorConfig struct {
-	MaxRestarts int           // Maximum restart attempts per worker (default: 5)
-	RestartWait time.Duration // Wait time before restart (default: 5s)
+	MaxRestarts   int           // Maximum restarts within the window (default: 5)
+	RestartWait   time.Duration // Wait time before restart (default: 5s)
+	RestartWindow time.Duration // Sliding window for counting restarts (default: 5min).
+	// Restarts older than this are forgotten.
 }
 
 // NewSupervisor creates a new Supervisor with the given configuration
@@ -55,6 +61,9 @@ func NewSupervisor(logger *zap.Logger, config SupervisorConfig) *Supervisor {
 	}
 	if config.RestartWait == 0 {
 		config.RestartWait = 5 * time.Second
+	}
+	if config.RestartWindow == 0 {
+		config.RestartWindow = 5 * time.Minute
 	}
 
 	meter := otel.Meter("padosme-be-common/worker")
@@ -79,8 +88,10 @@ func NewSupervisor(logger *zap.Logger, config SupervisorConfig) *Supervisor {
 		restartCh:     make(chan restartRequest, 10),
 		maxRestarts:   config.MaxRestarts,
 		restartWait:   config.RestartWait,
+		restartWindow: config.RestartWindow,
 		panicsTotal:   panicsTotal,
 		restartsTotal: restartsTotal,
+		nowFunc:       time.Now,
 	}
 }
 
@@ -239,11 +250,14 @@ func (s *Supervisor) requestRestart(worker Worker, err error) {
 	}
 }
 
-// handleRestarts handles worker restart requests
+// handleRestarts handles worker restart requests using a sliding window algorithm.
+// Restarts older than RestartWindow are pruned before counting, so a worker that
+// recovers and runs stably for longer than the window gets a fresh set of restart
+// attempts.
 func (s *Supervisor) handleRestarts(ctx context.Context) {
 	defer s.wg.Done()
 
-	restartCounts := make(map[string]int)
+	restartTimestamps := make(map[string][]time.Time)
 
 	for {
 		select {
@@ -253,8 +267,22 @@ func (s *Supervisor) handleRestarts(ctx context.Context) {
 			return
 		case req := <-s.restartCh:
 			worker := req.worker
-			restartCounts[worker.Name]++
-			count := restartCounts[worker.Name]
+			now := s.nowFunc()
+
+			// Append the current restart timestamp.
+			restartTimestamps[worker.Name] = append(restartTimestamps[worker.Name], now)
+
+			// Prune timestamps older than the restart window.
+			cutoff := now.Add(-s.restartWindow)
+			timestamps := restartTimestamps[worker.Name]
+			pruned := timestamps[:0]
+			for _, ts := range timestamps {
+				if !ts.Before(cutoff) {
+					pruned = append(pruned, ts)
+				}
+			}
+			restartTimestamps[worker.Name] = pruned
+			count := len(pruned)
 
 			if count > s.maxRestarts {
 				s.logger.Error("worker permanently stopped",

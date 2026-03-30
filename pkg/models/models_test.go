@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kaaslabs/padosme-be-common/v3/pkg/models"
+	"github.com/kaaslabs/padosme-be-common/v4/pkg/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

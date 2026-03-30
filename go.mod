@@ -1,4 +1,4 @@
-module github.com/kaaslabs/padosme-be-common/v3
+module github.com/kaaslabs/padosme-be-common/v4
 
 go 1.24.0
 

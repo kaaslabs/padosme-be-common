@@ -250,3 +250,127 @@ func TestSupervisor_GracefulShutdown(t *testing.T) {
 
 	waitForSignal(t, shutdownCalled, 1*time.Second, "worker did not receive shutdown signal")
 }
+
+func TestSupervisor_SlidingWindow_ResetsAfterWindow(t *testing.T) {
+	logger := zap.NewNop()
+
+	config := SupervisorConfig{
+		MaxRestarts:   2,
+		RestartWait:   10 * time.Millisecond,
+		RestartWindow: 200 * time.Millisecond, // Short window for testing
+	}
+
+	supervisor := NewSupervisor(logger, config)
+
+	// We control time to simulate the sliding window expiring.
+	var mu sync.Mutex
+	fakeNow := time.Now()
+	supervisor.nowFunc = func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return fakeNow
+	}
+	advanceTime := func(d time.Duration) {
+		mu.Lock()
+		defer mu.Unlock()
+		fakeNow = fakeNow.Add(d)
+	}
+
+	var execCount atomic.Int32
+	done := make(chan struct{})
+	var doneOnce sync.Once
+
+	// The worker fails twice (using up 2 of max 2 restarts), then on the 3rd
+	// execution we advance time past the window before returning an error. This
+	// means restart handler sees the 3rd restart request with a "now" that is past
+	// the window, pruning the first two timestamps. The worker then fails once
+	// more (4th exec) and finally succeeds on the 5th.
+	worker := Worker{
+		Name: "sliding-window-worker",
+		Fn: func(ctx context.Context) error {
+			count := execCount.Add(1)
+
+			switch {
+			case count <= 2:
+				// First two failures happen at the initial time.
+				return errors.New("transient failure")
+			case count == 3:
+				// Before failing, advance time past the window so old timestamps
+				// are pruned when handleRestarts processes this restart request.
+				advanceTime(300 * time.Millisecond)
+				return errors.New("transient failure")
+			case count == 4:
+				// One more failure in the new window.
+				return errors.New("transient failure")
+			default:
+				// Success on 5th execution.
+				doneOnce.Do(func() { close(done) })
+				return nil
+			}
+		},
+		Interval: 0,
+	}
+
+	supervisor.AddWorker(worker)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	supervisor.Start(ctx)
+
+	waitForSignal(t, done, 5*time.Second, "worker did not recover after sliding window reset")
+
+	cancel()
+	supervisor.Stop()
+
+	// The worker should have executed 5 times: failures 1-2 (within window), then
+	// window expires on exec 3, failure 4 (new window), success on 5.
+	if count := execCount.Load(); count < 5 {
+		t.Errorf("expected at least 5 executions, got %d", count)
+	}
+}
+
+func TestSupervisor_SlidingWindow_PermanentStopWithinWindow(t *testing.T) {
+	logger := zap.NewNop()
+
+	config := SupervisorConfig{
+		MaxRestarts:   2,
+		RestartWait:   10 * time.Millisecond,
+		RestartWindow: 5 * time.Minute, // Large window — nothing expires
+	}
+
+	supervisor := NewSupervisor(logger, config)
+
+	var execCount atomic.Int32
+	firstExec := make(chan struct{})
+	var firstOnce sync.Once
+
+	worker := Worker{
+		Name: "always-fail-window-worker",
+		Fn: func(ctx context.Context) error {
+			execCount.Add(1)
+			firstOnce.Do(func() { close(firstExec) })
+			return errors.New("permanent failure")
+		},
+		Interval: 0,
+	}
+
+	supervisor.AddWorker(worker)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	supervisor.Start(ctx)
+	defer supervisor.Stop()
+
+	waitForSignal(t, firstExec, 1*time.Second, "worker did not execute")
+
+	// Wait long enough for all restarts to be attempted and the permanent stop to occur.
+	time.Sleep(300 * time.Millisecond)
+
+	// With MaxRestarts=2, we expect: 1 initial + 2 restarts = 3 total.
+	// The 3rd restart request (count becomes 3, which is > 2) should be permanently stopped.
+	if count := execCount.Load(); count != 3 {
+		t.Errorf("expected exactly 3 executions (initial + 2 restarts), got %d", count)
+	}
+}
