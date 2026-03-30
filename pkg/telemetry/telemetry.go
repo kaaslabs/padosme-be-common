@@ -60,7 +60,7 @@ type Telemetry struct {
 func New(ctx context.Context, cfg Config) (*Telemetry, error) {
 	if !cfg.Enabled {
 		// Return a no-op telemetry setup
-		logger, _ := zap.NewProduction()
+		logger, _ := zap.NewDevelopment()
 		return &Telemetry{
 			Logger: logger,
 			Tracer: otel.Tracer(cfg.ServiceName),
@@ -218,16 +218,20 @@ func initLoggerProvider(ctx context.Context, cfg Config, res *resource.Resource)
 
 // createLogger creates a zap logger that bridges to OpenTelemetry
 func createLogger(cfg Config, lp *sdklog.LoggerProvider) *zap.Logger {
-	// Create console encoder
+	// Human-readable console encoder:
+	// 2026-03-30T04:21:05.123Z  INFO  handler/search.go:57  search completed
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.TimeKey = "timestamp"
+	encoderConfig.TimeKey = "ts"
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	encoderConfig.ConsoleSeparator = "  "
 
 	// Console core for stdout
 	consoleCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.NewConsoleEncoder(encoderConfig),
 		zapcore.AddSync(os.Stdout),
-		zap.InfoLevel,
+		zap.DebugLevel,
 	)
 
 	// OpenTelemetry bridge core
