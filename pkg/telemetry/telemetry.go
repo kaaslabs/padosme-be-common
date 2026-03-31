@@ -227,11 +227,17 @@ func createLogger(cfg Config, lp *sdklog.LoggerProvider) *zap.Logger {
 	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 	encoderConfig.ConsoleSeparator = "  "
 
+	// Log level from env: DEBUG, INFO, WARN, ERROR (default: INFO)
+	logLevel := zap.InfoLevel
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		_ = logLevel.UnmarshalText([]byte(lvl))
+	}
+
 	// Console core for stdout
 	consoleCore := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderConfig),
 		zapcore.AddSync(os.Stdout),
-		zap.DebugLevel,
+		logLevel,
 	)
 
 	// OpenTelemetry bridge core

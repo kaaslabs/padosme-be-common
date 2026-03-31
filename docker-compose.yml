@@ -45,6 +45,10 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     container_name: padosme-rabbitmq
     ports:
       - "5673:5672"
@@ -54,6 +58,7 @@ services:
       - RABBITMQ_DEFAULT_PASS=Kaas-Labs
       - RABBITMQ_DISK_FREE_LIMIT=500MB
     volumes:
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
