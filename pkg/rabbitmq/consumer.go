@@ -11,14 +11,15 @@ import (
 
 // ConsumerConfig configures a RabbitMQ consumer.
 type ConsumerConfig struct {
-	URL           string // amqp://user:pass@host:port/vhost
-	Exchange      string
-	ExchangeType  string // defaults to "topic"
-	Queue         string
-	RoutingKey    string
+	URL             string // amqp://user:pass@host:port/vhost
+	Exchange        string
+	ExchangeType    string // defaults to "topic"
+	Queue           string
+	RoutingKey      string
 	DLXExchange     string // dead-letter exchange; leave empty to skip DLX
 	DLXExchangeType string // DLX exchange type; defaults to "fanout"
 	PrefetchCount   int    // QoS prefetch count; defaults to 1
+	ConnectionName  string // shown in RabbitMQ Management UI; defaults to queue name
 }
 
 // MessageHandler processes a single AMQP delivery body.
@@ -60,7 +61,15 @@ func NewConsumer(cfg ConsumerConfig, handler MessageHandler, logger *zap.Logger)
 // or the connection is lost. Returns nil on clean shutdown, non-nil on failure
 // (which triggers a Supervisor restart).
 func (c *Consumer) Run(ctx context.Context) error {
-	conn, err := amqp.Dial(c.cfg.URL)
+	connName := c.cfg.ConnectionName
+	if connName == "" {
+		connName = c.cfg.Queue
+	}
+	conn, err := amqp.DialConfig(c.cfg.URL, amqp.Config{
+		Properties: amqp.Table{
+			"connection_name": connName,
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("rabbitmq consumer: dial: %w", err)
 	}
@@ -149,17 +158,32 @@ func (c *Consumer) handleDelivery(ctx context.Context, msg amqp.Delivery) {
 	err := c.handler(ctx, msg.Body)
 	switch {
 	case err == nil:
-		msg.Ack(false)
+		if ackErr := msg.Ack(false); ackErr != nil {
+			c.logger.Error("rabbitmq: ack failed",
+				zap.String("queue", c.cfg.Queue),
+				zap.Error(ackErr),
+			)
+		}
 	case errors.Is(err, ErrRequeue):
 		c.logger.Warn("rabbitmq: handler requested requeue",
 			zap.String("queue", c.cfg.Queue),
 		)
-		msg.Nack(false, true)
+		if nackErr := msg.Nack(false, true); nackErr != nil {
+			c.logger.Error("rabbitmq: nack(requeue) failed",
+				zap.String("queue", c.cfg.Queue),
+				zap.Error(nackErr),
+			)
+		}
 	default:
 		c.logger.Error("rabbitmq: handler failed, discarding to DLX",
 			zap.String("queue", c.cfg.Queue),
 			zap.Error(err),
 		)
-		msg.Nack(false, false)
+		if nackErr := msg.Nack(false, false); nackErr != nil {
+			c.logger.Error("rabbitmq: nack(discard) failed",
+				zap.String("queue", c.cfg.Queue),
+				zap.Error(nackErr),
+			)
+		}
 	}
 }

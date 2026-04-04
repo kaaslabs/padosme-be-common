@@ -51,7 +51,11 @@ func RabbitMQProbe(name string, amqpURL string, critical bool) ProbeConfig {
 		Name:     name,
 		Critical: critical,
 		Check: func(ctx context.Context) error {
-			conn, err := amqp.Dial(amqpURL)
+			conn, err := amqp.DialConfig(amqpURL, amqp.Config{
+				Properties: amqp.Table{
+					"connection_name": name + "-health-probe",
+				},
+			})
 			if err != nil {
 				return fmt.Errorf("amqp dial: %w", err)
 			}

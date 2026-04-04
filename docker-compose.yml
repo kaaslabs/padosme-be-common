@@ -3,14 +3,14 @@
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-bookworm
     container_name: padosme-postgres
     ports:
       - "5434:5432"
     environment:
       - POSTGRES_USER=deploy
-      - POSTGRES_PASSWORD=Kaas-Labs
-      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me}
+      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing,padosme_dictionary
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
@@ -24,7 +24,7 @@ services:
       - padosme-network
 
   redis:
-    image: redis:8.6.2-alpine
+    image: redis:8.0-bookworm
     container_name: padosme-redis
     environment:
       # Pass flags through the entrypoint so RediSearch + other modules load correctly.
@@ -42,33 +42,43 @@ services:
     restart: unless-stopped
     networks:
       - padosme-network
-
-  rabbitmq:
-    image: rabbitmq:3.13-management
+    
+  rabbitmq:                                                                                                                                                                                       
+    image: rabbitmq:4.0.7-management
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
-    container_name: padosme-rabbitmq
-    ports:
-      - "5673:5672"
-      - "15673:15672"
+    container_name: padosme-rabbitmq                           
+    ports:                                                                                                                                                                                        
+        - "5672:5672"     # AMQP
+        - "15672:15672"   # Management UI                                                                                                                                                           
+        - "15692:15692"   # Prometheus metrics                                                                                                                                                      
     environment:
-      - RABBITMQ_DEFAULT_USER=deploy
-      - RABBITMQ_DEFAULT_PASS=Kaas-Labs
-      - RABBITMQ_DISK_FREE_LIMIT=500MB
-    volumes:
-      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - rabbitmq-data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
-    restart: unless-stopped
+        RABBITMQ_DEFAULT_USER: rmq_admin                                                                                                                                                            
+        RABBITMQ_DEFAULT_PASS: ${RMQ_ADMIN_PASSWORD}        
+        RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"                                                                                                                             
+    volumes:                                                                                                                                                                                      
+        - rabbitmq_data:/var/lib/rabbitmq                                                                                                                                                           
+        - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro                                                                                                                                            
+        - ./advanced.config:/etc/rabbitmq/advanced.config:ro
+        - ./enabled_plugins:/etc/rabbitmq/enabled_plugins:ro                                                                                                                                        
     networks:
-      - padosme-network
+        - padosme-network                                                                                                                                                                           
+    restart: unless-stopped                               
+    healthcheck:                                                                                                                                                                                  
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+        interval: 30s                                                                                                                                                                               
+        timeout: 10s                                        
+        start_period: 30s
+        retries: 3                                                                                                                                                                                  
+    deploy:
+        resources:                                                                                                                                                                                  
+          limits:                                           
+            memory: 2G
+          reservations:
+            memory: 1G
+             
 
   jaeger:
     image: jaegertracing/jaeger:2.16.0
@@ -121,7 +131,7 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=Kaas-Labs
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-change-me}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -138,7 +148,7 @@ services:
       - "8000:80"
     environment:
       - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
-      - PGADMIN_DEFAULT_PASSWORD=Kaas-Labs
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-change-me}
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     volumes:
@@ -163,13 +173,13 @@ services:
       - padosme-network
 
   mongodb:
-    image: mongo:8.0
+    image: mmongo:8.0.20-bookworm
     container_name: padosme-mongodb
     ports:
       - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=deploy
-      - MONGO_INITDB_ROOT_PASSWORD=Kaas-Labs
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-change-me}
     volumes:
       - common_mongodb-data:/data/db:rw
     healthcheck:
@@ -199,4 +209,4 @@ volumes:
   ollama-data:
   common_mongodb-data:
     name: common_mongodb-data
-
+    
