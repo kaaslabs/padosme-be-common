@@ -1,10 +1,10 @@
 # =============================================================================
 # PadosMe Common — Full Stack Deployment
 # =============================================================================
-# 3-Environment Pipeline:
-#   1. deploy-integration — Auto-deploys on push to develop (no approval)
-#   2. deploy-staging     — Requires manual approval from @riyashmh
-#   3. deploy-production  — Requires manual approval from @riyashmh + 5 min wait
+# Trigger model:
+#   integration — auto on push to develop, OR manual dispatch
+#   staging     — manual dispatch ONLY
+#   production  — manual dispatch ONLY
 #
 # What gets deployed:
 #   docker-compose.prod.yml  — Postgres, Redis, RabbitMQ, MongoDB,
@@ -15,10 +15,9 @@
 #                              (never committed to repo)
 #
 # Environment Protection Rules (configure in GitHub Settings > Environments):
-#   - integration: no approval, branch restriction: develop
+#   - integration: no approval
 #   - staging:     require approval from @riyashmh
-#   - production:  require approval from @riyashmh + wait timer (5 min),
-#                  branch restriction: main
+#   - production:  require approval from @riyashmh + wait timer (5 min)
 #
 # Per-environment GitHub config (Settings > Environments > [env]):
 #
@@ -38,13 +37,16 @@
 #     RABBITMQ_PASSWORD          — RabbitMQ password
 #     MONGO_PASSWORD             — MongoDB root password
 #     GF_SECURITY_ADMIN_PASSWORD — Grafana admin password
+#
+# Server prerequisite (one-time):
+#   sudo apt-get install -y docker-compose-plugin
 # =============================================================================
 
 name: Deploy Common Stack
 
 on:
   push:
-    branches: [main, develop]
+    branches: [develop]
     paths:
       - 'docker-compose.prod.yml'
       - 'config/**'
@@ -69,6 +71,7 @@ concurrency:
 jobs:
   # ============================================================================
   # JOB 1: Deploy to Integration
+  # Auto on push to develop. Also available via manual dispatch.
   # ============================================================================
   deploy-integration:
     name: Deploy to Integration
@@ -91,7 +94,7 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,config/,init-scripts/,scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
@@ -103,6 +106,7 @@ jobs:
           port: ${{ vars.CLOUD_PORT || 22 }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
+            set -e
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
 
             # Write .env — docker compose reads this automatically.
@@ -119,9 +123,16 @@ jobs:
             ENVEOF
             chmod 600 .env
 
+            # Support both docker compose V2 (plugin) and docker-compose V1
+            if docker compose version > /dev/null 2>&1; then
+              DC="docker compose"
+            else
+              DC="docker-compose"
+            fi
+
             docker network create padosme-network 2>/dev/null || true
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            $DC -f docker-compose.prod.yml pull
+            $DC -f docker-compose.prod.yml up -d
 
       - name: Verify containers are running
         uses: appleboy/ssh-action@v1.0.3
@@ -132,24 +143,24 @@ jobs:
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
-            docker compose -f docker-compose.prod.yml ps
-            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+            $DC -f docker-compose.prod.yml ps
+            RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
             if [ "$RUNNING" -lt 8 ]; then
               echo "ERROR: Only $RUNNING/8 containers running"
-              docker compose -f docker-compose.prod.yml logs --tail=30
+              $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
             echo "All $RUNNING containers are running."
 
   # ============================================================================
   # JOB 2: Deploy to Staging
+  # Manual dispatch ONLY — triggered independently, not chained from integration.
   # ============================================================================
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    if: >
-      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging'
 
     environment:
       name: staging
@@ -177,6 +188,7 @@ jobs:
           port: ${{ vars.CLOUD_PORT || 22 }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
+            set -e
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
 
             cat > .env << 'ENVEOF'
@@ -191,9 +203,15 @@ jobs:
             ENVEOF
             chmod 600 .env
 
+            if docker compose version > /dev/null 2>&1; then
+              DC="docker compose"
+            else
+              DC="docker-compose"
+            fi
+
             docker network create padosme-network 2>/dev/null || true
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            $DC -f docker-compose.prod.yml pull
+            $DC -f docker-compose.prod.yml up -d
 
       - name: Verify containers are running
         uses: appleboy/ssh-action@v1.0.3
@@ -204,25 +222,24 @@ jobs:
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
-            docker compose -f docker-compose.prod.yml ps
-            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+            $DC -f docker-compose.prod.yml ps
+            RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
             if [ "$RUNNING" -lt 8 ]; then
               echo "ERROR: Only $RUNNING/8 containers running"
-              docker compose -f docker-compose.prod.yml logs --tail=30
+              $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
             echo "All $RUNNING containers are running."
 
   # ============================================================================
   # JOB 3: Deploy to Production
+  # Manual dispatch ONLY — triggered independently after you verify staging.
   # ============================================================================
   deploy-production:
     name: Deploy to Production
-    needs: deploy-staging
     runs-on: ubuntu-latest
-    if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
 
     environment:
       name: production
@@ -250,6 +267,7 @@ jobs:
           port: ${{ vars.CLOUD_PORT || 22 }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
+            set -e
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
 
             cat > .env << 'ENVEOF'
@@ -264,9 +282,15 @@ jobs:
             ENVEOF
             chmod 600 .env
 
+            if docker compose version > /dev/null 2>&1; then
+              DC="docker compose"
+            else
+              DC="docker-compose"
+            fi
+
             docker network create padosme-network 2>/dev/null || true
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            $DC -f docker-compose.prod.yml pull
+            $DC -f docker-compose.prod.yml up -d
 
       - name: Verify containers are running
         uses: appleboy/ssh-action@v1.0.3
@@ -277,11 +301,12 @@ jobs:
           key: ${{ secrets.CLOUD_SSH_KEY }}
           script: |
             cd ${{ vars.CLOUD_DEPLOY_PATH }}
-            docker compose -f docker-compose.prod.yml ps
-            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+            $DC -f docker-compose.prod.yml ps
+            RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
             if [ "$RUNNING" -lt 8 ]; then
               echo "ERROR: Only $RUNNING/8 containers running"
-              docker compose -f docker-compose.prod.yml logs --tail=30
+              $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
             echo "All $RUNNING containers are running."
