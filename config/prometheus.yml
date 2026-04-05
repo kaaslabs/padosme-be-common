@@ -2,42 +2,32 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'padosme-local'
-    environment: 'development'
+    cluster: 'padosme'
+    environment: 'production'
 
-# Scrape configurations
 scrape_configs:
-  # Scrape Prometheus itself
+
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # Scrape OpenTelemetry Collector metrics
   - job_name: 'otel-collector'
     static_configs:
       - targets: ['otel-collector:8888']
         labels:
           service: 'otel-collector'
 
-  # Scrape metrics exposed by OpenTelemetry Collector (from your services)
   - job_name: 'padosme-services'
     scrape_interval: 10s
     static_configs:
       - targets: ['otel-collector:8889']
         labels:
-          cluster: 'padosme-local'
+          cluster: 'padosme'
 
-  # PostgreSQL exporter (optional - uncomment if you add postgres_exporter)
-  # - job_name: 'postgres'
-  #   static_configs:
-  #     - targets: ['postgres-exporter:9187']
-
-  # Redis exporter (optional - uncomment if you add redis_exporter)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
-
-  # RabbitMQ metrics (optional - if you enable rabbitmq prometheus plugin)
-  # - job_name: 'rabbitmq'
-  #   static_configs:
-  #     - targets: ['rabbitmq:15692']
+  # RabbitMQ exposes Prometheus metrics natively via the prometheus plugin.
+  # Enabled in config/enabled_plugins.
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+        labels:
+          service: 'rabbitmq'

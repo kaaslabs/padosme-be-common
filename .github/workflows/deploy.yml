@@ -1,5 +1,5 @@
 # =============================================================================
-# PadosMe Common — Observability Stack Deployment
+# PadosMe Common — Full Stack Deployment
 # =============================================================================
 # 3-Environment Pipeline:
 #   1. deploy-integration — Auto-deploys on push to develop (no approval)
@@ -7,13 +7,12 @@
 #   3. deploy-production  — Requires manual approval from @riyashmh + 5 min wait
 #
 # What gets deployed:
-#   docker-compose.prod.yml — OTEL collector, Jaeger, Prometheus, Grafana
-#   config/                 — OTEL, Prometheus, Grafana provisioning configs
-#
-# What is NOT deployed (one-time manual setup on host/baremetal):
-#   PostgreSQL, Redis, RabbitMQ, MongoDB
-#   scripts/setup-rabbitmq.sh, scripts/setup-databases.sh
-#   init-scripts/create-multiple-databases.sh
+#   docker-compose.prod.yml  — Postgres, Redis, RabbitMQ, MongoDB,
+#                              OTEL, Jaeger, Prometheus, Grafana
+#   config/                  — OTEL, Prometheus, Grafana, RabbitMQ configs
+#   init-scripts/            — Postgres multi-database init script
+#   .env                     — Written at deploy time from GitHub secrets/vars
+#                              (never committed to repo)
 #
 # Environment Protection Rules (configure in GitHub Settings > Environments):
 #   - integration: no approval, branch restriction: develop
@@ -21,14 +20,27 @@
 #   - production:  require approval from @riyashmh + wait timer (5 min),
 #                  branch restriction: main
 #
-# Per-environment config (Settings > Environments > [env]):
-#   Variables (visible in logs, easy to debug):
-#     CLOUD_HOST, CLOUD_USER, CLOUD_PORT, CLOUD_DEPLOY_PATH
-#   Secrets (masked in logs):
-#     CLOUD_SSH_KEY, GF_SECURITY_ADMIN_PASSWORD
+# Per-environment GitHub config (Settings > Environments > [env]):
+#
+#   Variables (non-sensitive, visible in logs):
+#     CLOUD_HOST        — Server IP or hostname
+#     CLOUD_USER        — SSH user (e.g. deploy)
+#     CLOUD_PORT        — SSH port (e.g. 22)
+#     CLOUD_DEPLOY_PATH — Deploy dir (e.g. /opt/padosme/integration/common)
+#     DB_USER           — PostgreSQL username
+#     RABBITMQ_USER     — RabbitMQ admin username
+#     MONGO_USER        — MongoDB root username
+#
+#   Secrets (sensitive, masked in logs):
+#     CLOUD_SSH_KEY              — SSH private key for deploy user
+#     DB_PASSWORD                — PostgreSQL password
+#     REDIS_PASSWORD             — Redis password
+#     RABBITMQ_PASSWORD          — RabbitMQ password
+#     MONGO_PASSWORD             — MongoDB root password
+#     GF_SECURITY_ADMIN_PASSWORD — Grafana admin password
 # =============================================================================
 
-name: Deploy Observability Stack
+name: Deploy Common Stack
 
 on:
   push:
@@ -36,6 +48,7 @@ on:
     paths:
       - 'docker-compose.prod.yml'
       - 'config/**'
+      - 'init-scripts/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
     inputs:
@@ -49,29 +62,16 @@ on:
           - staging
           - production
 
-# Cancel in-progress runs for same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   # ============================================================================
-  # JOB 1: Secret Scan
-  # ============================================================================
-  scan:
-    name: Secret Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-
-  # ============================================================================
-  # JOB 2: Deploy to Integration
+  # JOB 1: Deploy to Integration
   # ============================================================================
   deploy-integration:
     name: Deploy to Integration
-    needs: scan
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
@@ -91,16 +91,61 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/,scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
+      - name: Write .env and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+
+            # Write .env — docker compose reads this automatically.
+            # chmod 600 so only the deploy user can read credentials.
+            cat > .env << 'ENVEOF'
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            RABBITMQ_USER=${{ vars.RABBITMQ_USER }}
+            RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
+            MONGO_USER=${{ vars.MONGO_USER }}
+            MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+            GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            ENVEOF
+            chmod 600 .env
+
+            docker network create padosme-network 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+      - name: Verify containers are running
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+            docker compose -f docker-compose.prod.yml ps
+            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if [ "$RUNNING" -lt 8 ]; then
+              echo "ERROR: Only $RUNNING/8 containers running"
+              docker compose -f docker-compose.prod.yml logs --tail=30
+              exit 1
+            fi
+            echo "All $RUNNING containers are running."
+
   # ============================================================================
-  # JOB 3: Deploy to Staging
+  # JOB 2: Deploy to Staging
   # ============================================================================
   deploy-staging:
     name: Deploy to Staging
-    needs: scan
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
@@ -120,16 +165,60 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
+      - name: Write .env and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+
+            cat > .env << 'ENVEOF'
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            RABBITMQ_USER=${{ vars.RABBITMQ_USER }}
+            RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
+            MONGO_USER=${{ vars.MONGO_USER }}
+            MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+            GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            ENVEOF
+            chmod 600 .env
+
+            docker network create padosme-network 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+      - name: Verify containers are running
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+            docker compose -f docker-compose.prod.yml ps
+            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if [ "$RUNNING" -lt 8 ]; then
+              echo "ERROR: Only $RUNNING/8 containers running"
+              docker compose -f docker-compose.prod.yml logs --tail=30
+              exit 1
+            fi
+            echo "All $RUNNING containers are running."
+
   # ============================================================================
-  # JOB 4: Deploy to Production
+  # JOB 3: Deploy to Production
   # ============================================================================
   deploy-production:
     name: Deploy to Production
-    needs: [scan, deploy-staging]
+    needs: deploy-staging
     runs-on: ubuntu-latest
     if: >
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -149,7 +238,50 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
+      - name: Write .env and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+
+            cat > .env << 'ENVEOF'
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            RABBITMQ_USER=${{ vars.RABBITMQ_USER }}
+            RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
+            MONGO_USER=${{ vars.MONGO_USER }}
+            MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+            GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            ENVEOF
+            chmod 600 .env
+
+            docker network create padosme-network 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+
+      - name: Verify containers are running
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT || 22 }}
+          key: ${{ secrets.CLOUD_SSH_KEY }}
+          script: |
+            cd ${{ vars.CLOUD_DEPLOY_PATH }}
+            docker compose -f docker-compose.prod.yml ps
+            RUNNING=$(docker compose -f docker-compose.prod.yml ps --status running -q | wc -l)
+            if [ "$RUNNING" -lt 8 ]; then
+              echo "ERROR: Only $RUNNING/8 containers running"
+              docker compose -f docker-compose.prod.yml logs --tail=30
+              exit 1
+            fi
+            echo "All $RUNNING containers are running."

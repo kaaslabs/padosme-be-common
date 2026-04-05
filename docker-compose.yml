@@ -12,7 +12,7 @@
 services:
   postgres:
     image: postgres:18-bookworm
-    container_name: padosme-postgres
+    container_name: postgres
     ports:
       - "5434:5432"
     environment:
@@ -33,7 +33,7 @@ services:
 
   redis:
     image: redis:8.0-bookworm
-    container_name: padosme-redis
+    container_name: redis
     environment:
       # Pass flags through the entrypoint so RediSearch + other modules load correctly.
       # Overriding 'command' bypasses /entrypoint.sh and skips module loading.
@@ -57,7 +57,7 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    container_name: padosme-rabbitmq                           
+    container_name: rabbitmq                           
     ports:
         - "5672:5672"     # AMQP
         - "15672:15672"   # Management UI
@@ -90,7 +90,7 @@ services:
 
   jaeger:
     image: jaegertracing/jaeger:2.16.0
-    container_name: padosme-jaeger
+    container_name: jaeger
     ports:
       - "16686:16686"  # Jaeger UI
       - "14250:14250"  # Jaeger gRPC
@@ -101,7 +101,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.148.0
-    container_name: padosme-otel-collector
+    container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
@@ -117,7 +117,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.10.0
-    container_name: padosme-prometheus
+    container_name: prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -134,7 +134,7 @@ services:
 
   grafana:
     image: grafana/grafana:12.4.2
-    container_name: padosme-grafana
+    container_name: grafana
     ports:
       - "3000:3000"
     environment:
@@ -151,7 +151,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:9.13
-    container_name: padosme-pgadmin
+    container_name: pgadmin
     ports:
       - "8000:80"
     environment:
@@ -169,7 +169,7 @@ services:
 
   redisinsight:
     image: redis/redisinsight:3.0.3
-    container_name: padosme-redisinsight
+    container_name: redisinsight
     ports:
       - "5540:5540"
     volumes:
@@ -182,7 +182,7 @@ services:
 
   mongodb:
     image: mmongo:8.0.20-bookworm
-    container_name: padosme-mongodb
+    container_name: mongodb
     ports:
       - "27017:27017"
     environment:
