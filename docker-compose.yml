@@ -1,11 +1,10 @@
 # =============================================================================
-# LOCAL DEVELOPMENT ONLY — All infrastructure in containers
+# LOCAL DEVELOPMENT — Full stack in containers
 # =============================================================================
-# For production/staging: install PostgreSQL, Redis, RabbitMQ, MongoDB on host.
-# Use docker-compose.observability.yml for traces/metrics/dashboards.
-# Use docker-compose.admin-tools.yml for pgAdmin/RedisInsight.
+# All infrastructure runs as Docker containers for local dev.
+# For production/staging/integration: use docker-compose.prod.yml
 #
-# Usage (local dev):
+# Usage:
 #   docker compose up -d
 # =============================================================================
 
@@ -20,7 +19,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me}
       - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing,padosme_dictionary
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U deploy"]
@@ -35,8 +34,6 @@ services:
     image: redis:8.0-bookworm
     container_name: redis
     environment:
-      # Pass flags through the entrypoint so RediSearch + other modules load correctly.
-      # Overriding 'command' bypasses /entrypoint.sh and skips module loading.
       - REDIS_ARGS=--appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
@@ -50,50 +47,107 @@ services:
     restart: unless-stopped
     networks:
       - padosme-network
-    
-  rabbitmq: 
+
+  rabbitmq:
     image: rabbitmq:4.0.7-management
+    container_name: rabbitmq
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
-    container_name: rabbitmq                           
     ports:
-        - "5672:5672"     # AMQP
-        - "15672:15672"   # Management UI
-        - "15692:15692"   # Prometheus metrics
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
     environment:
-        RABBITMQ_DEFAULT_USER: rmq_admin
-        RABBITMQ_DEFAULT_PASS: ${RMQ_ADMIN_PASSWORD}        
-        RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"
+      RABBITMQ_DEFAULT_USER: rmq_admin
+      RABBITMQ_DEFAULT_PASS: ${RMQ_ADMIN_PASSWORD:-change-me}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"
     volumes:
-        - rabbitmq_data:/var/lib/rabbitmq
-        - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-        - ./advanced.config:/etc/rabbitmq/advanced.config:ro
-        - ./enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
-    networks:
-        - padosme-network
-    restart: unless-stopped                               
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/advanced.config:/etc/rabbitmq/advanced.config:ro
+      - ./config/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
-        test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-        interval: 30s
-        timeout: 10s                                        
-        start_period: 30s
-        retries: 3
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
     deploy:
-        resources:
-          limits:                                           
-            memory: 2G
-          reservations:
-            memory: 1G
-             
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - padosme-network
+
+  mongodb:
+    image: mongo:8.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=deploy
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-change-me}
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 2
+    restart: unless-stopped
+    networks:
+      - padosme-network
+
+  # ---------------------------------------------------------------------------
+  # Admin Tools
+  # ---------------------------------------------------------------------------
+
+  pgadmin:
+    image: dpage/pgadmin4:9.13
+    container_name: pgadmin
+    ports:
+      - "8000:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-change-me}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - padosme-network
+
+  redisinsight:
+    image: redis/redisinsight:3.0.3
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - padosme-network
+
+  # ---------------------------------------------------------------------------
+  # Observability
+  # ---------------------------------------------------------------------------
 
   jaeger:
     image: jaegertracing/jaeger:2.16.0
     container_name: jaeger
     ports:
-      - "16686:16686"  # Jaeger UI
-      - "14250:14250"  # Jaeger gRPC
+      - "16686:16686"
+      - "14250:14250"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -106,9 +160,9 @@ services:
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
-      - "8889:8889"    # Prometheus exporter metrics
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
     depends_on:
       - jaeger
       - prometheus
@@ -149,59 +203,6 @@ services:
     networks:
       - padosme-network
 
-  pgadmin:
-    image: dpage/pgadmin4:9.13
-    container_name: pgadmin
-    ports:
-      - "8000:80"
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-change-me}
-      - PGADMIN_CONFIG_SERVER_MODE=False
-      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - padosme-network
-
-  redisinsight:
-    image: redis/redisinsight:3.0.3
-    container_name: redisinsight
-    ports:
-      - "5540:5540"
-    volumes:
-      - redisinsight-data:/data
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - padosme-network
-
-  mongodb:
-    image: mmongo:8.0.20-bookworm
-    container_name: mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=deploy
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-change-me}
-    volumes:
-      - common_mongodb-data:/data/db:rw
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 2
-    restart: unless-stopped
-    networks:
-      padosme-network:
-        aliases:
-          - padosme-mongodb
-          - mongodb
-
 networks:
   padosme-network:
     external: true
@@ -210,11 +211,8 @@ volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  mongodb-data:
   prometheus-data:
   grafana-data:
   pgadmin-data:
   redisinsight-data:
-  ollama-data:
-  common_mongodb-data:
-    name: common_mongodb-data
-    

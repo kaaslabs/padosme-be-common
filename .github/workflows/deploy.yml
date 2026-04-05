@@ -8,6 +8,7 @@
 #
 # What gets deployed:
 #   docker-compose.prod.yml  — Postgres, Redis, RabbitMQ, MongoDB,
+#                              pgAdmin, RedisInsight,
 #                              OTEL, Jaeger, Prometheus, Grafana
 #   config/                  — OTEL, Prometheus, Grafana, RabbitMQ configs
 #   init-scripts/            — Postgres multi-database init script
@@ -37,6 +38,7 @@
 #     RABBITMQ_PASSWORD          — RabbitMQ password
 #     MONGO_PASSWORD             — MongoDB root password
 #     GF_SECURITY_ADMIN_PASSWORD — Grafana admin password
+#     PGADMIN_DEFAULT_PASSWORD   — pgAdmin web UI password
 #
 # Server prerequisite (one-time):
 #   sudo apt-get install -y docker-compose-plugin
@@ -94,7 +96,7 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,config/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/,scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
@@ -120,6 +122,7 @@ jobs:
             MONGO_USER=${{ vars.MONGO_USER }}
             MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
             ENVEOF
             chmod 600 .env
 
@@ -146,8 +149,8 @@ jobs:
             if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
             $DC -f docker-compose.prod.yml ps
             RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
-            if [ "$RUNNING" -lt 8 ]; then
-              echo "ERROR: Only $RUNNING/8 containers running"
+            if [ "$RUNNING" -lt 10 ]; then
+              echo "ERROR: Only $RUNNING/10 containers running"
               $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
@@ -176,7 +179,7 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,config/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/,scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
@@ -200,6 +203,7 @@ jobs:
             MONGO_USER=${{ vars.MONGO_USER }}
             MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
             ENVEOF
             chmod 600 .env
 
@@ -225,8 +229,8 @@ jobs:
             if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
             $DC -f docker-compose.prod.yml ps
             RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
-            if [ "$RUNNING" -lt 8 ]; then
-              echo "ERROR: Only $RUNNING/8 containers running"
+            if [ "$RUNNING" -lt 10 ]; then
+              echo "ERROR: Only $RUNNING/10 containers running"
               $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
@@ -255,7 +259,7 @@ jobs:
           username: ${{ vars.CLOUD_USER }}
           port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.prod.yml,config/,init-scripts/"
+          source: "docker-compose.prod.yml,config/,init-scripts/,scripts/"
           target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
@@ -279,6 +283,7 @@ jobs:
             MONGO_USER=${{ vars.MONGO_USER }}
             MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
             GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GF_SECURITY_ADMIN_PASSWORD }}
+            PGADMIN_DEFAULT_PASSWORD=${{ secrets.PGADMIN_DEFAULT_PASSWORD }}
             ENVEOF
             chmod 600 .env
 
@@ -304,8 +309,8 @@ jobs:
             if docker compose version > /dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
             $DC -f docker-compose.prod.yml ps
             RUNNING=$($DC -f docker-compose.prod.yml ps --status running -q | wc -l)
-            if [ "$RUNNING" -lt 8 ]; then
-              echo "ERROR: Only $RUNNING/8 containers running"
+            if [ "$RUNNING" -lt 10 ]; then
+              echo "ERROR: Only $RUNNING/10 containers running"
               $DC -f docker-compose.prod.yml logs --tail=30
               exit 1
             fi
