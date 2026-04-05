@@ -1,18 +1,25 @@
-# Common infrastructure services for all Padosme backend microservices
-# Start this before running individual microservices
+# =============================================================================
+# LOCAL DEVELOPMENT — Full stack in containers
+# =============================================================================
+# All infrastructure runs as Docker containers for local dev.
+# For production/staging/integration: use docker-compose.prod.yml
+#
+# Usage:
+#   docker compose up -d
+# =============================================================================
 
 services:
   postgres:
-    image: postgres:17-alpine
-    container_name: padosme-postgres
+    image: postgres:18-bookworm
+    container_name: postgres
     ports:
       - "5434:5432"
     environment:
       - POSTGRES_USER=deploy
-      - POSTGRES_PASSWORD=Kaas-Labs
-      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me}
+      - POSTGRES_MULTIPLE_DATABASES=padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing,padosme_dictionary
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U deploy"]
@@ -24,11 +31,9 @@ services:
       - padosme-network
 
   redis:
-    image: redis:8.6.2-alpine
-    container_name: padosme-redis
+    image: redis:8.0-bookworm
+    container_name: redis
     environment:
-      # Pass flags through the entrypoint so RediSearch + other modules load correctly.
-      # Overriding 'command' bypasses /entrypoint.sh and skips module loading.
       - REDIS_ARGS=--appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
@@ -44,38 +49,105 @@ services:
       - padosme-network
 
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:4.0.7-management
+    container_name: rabbitmq
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
-    container_name: padosme-rabbitmq
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - "5672:5672"
+      - "15672:15672"
+      - "15692:15692"
     environment:
-      - RABBITMQ_DEFAULT_USER=deploy
-      - RABBITMQ_DEFAULT_PASS=Kaas-Labs
-      - RABBITMQ_DISK_FREE_LIMIT=500MB
+      RABBITMQ_DEFAULT_USER: rmq_admin
+      RABBITMQ_DEFAULT_PASS: ${RMQ_ADMIN_PASSWORD:-change-me}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"
     volumes:
-      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./config/advanced.config:/etc/rabbitmq/advanced.config:ro
+      - ./config/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms" ]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - padosme-network
+
+  mongodb:
+    image: mongo:8.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=deploy
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-change-me}
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 40s
+      retries: 2
     restart: unless-stopped
     networks:
       - padosme-network
 
+  # ---------------------------------------------------------------------------
+  # Admin Tools
+  # ---------------------------------------------------------------------------
+
+  pgadmin:
+    image: dpage/pgadmin4:9.13
+    container_name: pgadmin
+    ports:
+      - "8000:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-change-me}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - padosme-network
+
+  redisinsight:
+    image: redis/redisinsight:3.0.3
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - padosme-network
+
+  # ---------------------------------------------------------------------------
+  # Observability
+  # ---------------------------------------------------------------------------
+
   jaeger:
     image: jaegertracing/jaeger:2.16.0
-    container_name: padosme-jaeger
+    container_name: jaeger
     ports:
-      - "16686:16686"  # Jaeger UI
-      - "14250:14250"  # Jaeger gRPC
+      - "16686:16686"
+      - "14250:14250"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -83,14 +155,14 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.148.0
-    container_name: padosme-otel-collector
+    container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"    # OTLP gRPC receiver
-      - "4318:4318"    # OTLP HTTP receiver
-      - "8889:8889"    # Prometheus exporter metrics
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
     depends_on:
       - jaeger
       - prometheus
@@ -99,7 +171,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.10.0
-    container_name: padosme-prometheus
+    container_name: prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -116,12 +188,12 @@ services:
 
   grafana:
     image: grafana/grafana:12.4.2
-    container_name: padosme-grafana
+    container_name: grafana
     ports:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=Kaas-Labs
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-change-me}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -131,59 +203,6 @@ services:
     networks:
       - padosme-network
 
-  pgadmin:
-    image: dpage/pgadmin4:9.13
-    container_name: padosme-pgadmin
-    ports:
-      - "8000:80"
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
-      - PGADMIN_DEFAULT_PASSWORD=Kaas-Labs
-      - PGADMIN_CONFIG_SERVER_MODE=False
-      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - padosme-network
-
-  redisinsight:
-    image: redis/redisinsight:3.0.3
-    container_name: padosme-redisinsight
-    ports:
-      - "5540:5540"
-    volumes:
-      - redisinsight-data:/data
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - padosme-network
-
-  mongodb:
-    image: mongo:8.0
-    container_name: padosme-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=deploy
-      - MONGO_INITDB_ROOT_PASSWORD=Kaas-Labs
-    volumes:
-      - common_mongodb-data:/data/db:rw
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 2
-    restart: unless-stopped
-    networks:
-      padosme-network:
-        aliases:
-          - padosme-mongodb
-          - mongodb
-
 networks:
   padosme-network:
     external: true
@@ -192,11 +211,8 @@ volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  mongodb-data:
   prometheus-data:
   grafana-data:
   pgadmin-data:
   redisinsight-data:
-  ollama-data:
-  common_mongodb-data:
-    name: common_mongodb-data
-

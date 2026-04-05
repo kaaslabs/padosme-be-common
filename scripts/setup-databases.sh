@@ -244,7 +244,7 @@ fi
 # =========================================================================
 # 1. CREATE DATABASES
 # =========================================================================
-# All 11 PostgreSQL databases in the Padosme ecosystem.
+# All 15 PostgreSQL databases in the Padosme ecosystem.
 #
 # Service-to-database mapping:
 #   padosme-auth-service          -> padosme_auth
@@ -259,6 +259,10 @@ fi
 #   padosme-payment-service       -> payment_service
 #   padosme-coupon-service        -> padosme_coupon
 #   padosme-discovery-service     -> discovery
+#   padosme-indexing-service      -> padosme_indexing
+#   padosme-config-service        -> padosme_config
+#   padosme-dictionary-service    -> padosme_dictionary
+#   padosme-location-service      -> padosme_location
 #   ledgers-cloud-connect-service -> padosme_ledgers
 #
 # NOT managed here:
@@ -289,6 +293,12 @@ create_database "payment_service"
 # Analytics / discovery
 create_database "analytics_db"
 create_database "discovery"
+
+# Indexing / config / dictionary / location
+create_database "padosme_indexing"
+create_database "padosme_config"
+create_database "padosme_dictionary"
+create_database "padosme_location"
 
 # External integrations
 create_database "padosme_ledgers"
@@ -326,6 +336,10 @@ else
     ANALYTICS_DIR="padosme-analytics-service"
     DISCOVERY_DIR="padosme-discovery-service"
     LEDGERS_DIR="ledgers-cloud-connect-service"
+    INDEXING_DIR="padosme-indexing-service"
+    CONFIG_DIR="padosme-config-service"
+    DICTIONARY_DIR="padosme-dictionary-service"
+    LOCATION_DIR="padosme-location-service"
   else
     # Dev layout: /home/.../kaaslabs/padosme-auth-service/
     AUTH_DIR="padosme-auth-service"
@@ -341,6 +355,10 @@ else
     ANALYTICS_DIR="padosme-analytics-service"
     DISCOVERY_DIR="padosme-discovery-service"
     LEDGERS_DIR="ledgers-cloud-connect-service"
+    INDEXING_DIR="padosme-indexing-service"
+    CONFIG_DIR="padosme-config-service"
+    DICTIONARY_DIR="padosme-dictionary-service"
+    LOCATION_DIR="padosme-location-service"
   fi
 
   # --- Layer 0: Auth (no dependencies) ---
@@ -387,6 +405,18 @@ else
 
   info "Ledgers service"
   run_service_migrations "padosme_ledgers"         "$LEDGERS_DIR"
+
+  info "Indexing service"
+  run_service_migrations "padosme_indexing"         "$INDEXING_DIR"
+
+  info "Config service"
+  run_service_migrations "padosme_config"           "$CONFIG_DIR"
+
+  info "Dictionary service"
+  run_service_migrations "padosme_dictionary"       "$DICTIONARY_DIR"
+
+  info "Location service"
+  run_service_migrations "padosme_location"         "$LOCATION_DIR"
 fi
 
 # =========================================================================
@@ -408,8 +438,8 @@ fi
 
 echo ""
 echo -e "${DIM}Database summary:${RESET}"
-echo    "  13 PostgreSQL databases (11 service DBs + postgres + template)"
-echo    "  12 services with SQL migrations"
+echo    "  17 PostgreSQL databases (15 service DBs + postgres + template)"
+echo    "  16 services with SQL migrations"
 echo    "   1 service uses MongoDB (catalogue-service -> catalog_db)"
 echo    "   1 service has no database (mobile-sms-service)"
 echo ""

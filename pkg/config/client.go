@@ -75,7 +75,11 @@ func (w *Watcher) Start(ctx context.Context) error {
 // Blocks until ctx is cancelled or connection is lost. Supervisor-compatible.
 func (w *Watcher) SubscribeRabbitMQ(amqpURL, queue string) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		conn, err := amqp.Dial(amqpURL)
+		conn, err := amqp.DialConfig(amqpURL, amqp.Config{
+			Properties: amqp.Table{
+				"connection_name": "config-watcher-" + queue,
+			},
+		})
 		if err != nil {
 			return fmt.Errorf("config watcher: rabbitmq dial: %w", err)
 		}

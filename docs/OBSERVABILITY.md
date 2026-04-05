@@ -27,7 +27,7 @@ Prometheus scrapes metrics from:
 ### 3. Grafana
 - **Port**: 3000
 - **Purpose**: Visualization and dashboards
-- **Default credentials**: admin/Kaas-Labs
+- **Default credentials**: admin/change-me
 - **UI**: http://localhost:3000
 
 Grafana is pre-configured with Prometheus as a data source.
@@ -50,7 +50,7 @@ Grafana is pre-configured with Prometheus as a data source.
    ```
 
 3. **Access the UIs**:
-   - Grafana: http://localhost:3000 (admin/Kaas-Labs)
+   - Grafana: http://localhost:3000 (admin/change-me)
    - Prometheus: http://localhost:9090
    - Jaeger: http://localhost:16686
 

@@ -140,12 +140,12 @@ docker exec -it padosme-postgres psql -U postgres -c "\l"
 - **RedisInsight**: http://localhost:5540
 
 **Observability:**
-- **Grafana**: http://localhost:3000 (admin/Kaas-Labs)
+- **Grafana**: http://localhost:3000 (admin/change-me)
 - **Prometheus**: http://localhost:9090
 - **Jaeger**: http://localhost:16686
 
 **Messaging:**
-- **RabbitMQ Management**: http://localhost:15672 (deploy/Kaas-Labs)
+- **RabbitMQ Management**: http://localhost:15672 (deploy/change-me)
 
 See [Observability guide](./docs/OBSERVABILITY.md) for detailed documentation on instrumenting services and creating dashboards.
 
@@ -294,17 +294,17 @@ networks:
 
 | Service | Host | Port | Default Credentials |
 |---------|------|------|---------------------|
-| PostgreSQL | padosme-postgres | 5432 | deploy/Kaas-Labs |
-| pgAdmin4 | localhost | 8000 | cto@kaaslabs.com/Kaas-Labs |
+| PostgreSQL | padosme-postgres | 5432 | deploy/change-me |
+| pgAdmin4 | localhost | 8000 | cto@kaaslabs.com/change-me |
 | Redis | padosme-redis | 6379 | -- |
 | RedisInsight | localhost | 5540 | -- |
-| RabbitMQ | padosme-rabbitmq | 5672 | deploy/Kaas-Labs |
-| RabbitMQ Management | padosme-rabbitmq | 15672 | deploy/Kaas-Labs |
+| RabbitMQ | padosme-rabbitmq | 5672 | deploy/change-me |
+| RabbitMQ Management | padosme-rabbitmq | 15672 | deploy/change-me |
 | Jaeger | padosme-jaeger | 16686 | -- |
 | OTLP Collector gRPC | padosme-otel-collector | 4317 | -- |
 | OTLP Collector HTTP | padosme-otel-collector | 4318 | -- |
 | Prometheus | padosme-prometheus | 9090 | -- |
-| Grafana | padosme-grafana | 3000 | admin/Kaas-Labs |
+| Grafana | padosme-grafana | 3000 | admin/change-me |
 
 ---
 
@@ -384,13 +384,13 @@ Thread-safe AMQP primitives designed for use with the worker Supervisor:
 
 ```go
 pub, _ := rabbitmq.NewPublisher(ctx, rabbitmq.PublisherConfig{
-    URL: "amqp://deploy:Kaas-Labs@padosme-rabbitmq:5672/",
+    URL: "amqp://deploy:change-me@padosme-rabbitmq:5672/",
     Exchange: "coupon.events",
 }, logger)
 pub.Publish(ctx, "coupon.created", payload)
 
 consumer := rabbitmq.NewConsumer(rabbitmq.ConsumerConfig{
-    URL:         "amqp://deploy:Kaas-Labs@padosme-rabbitmq:5672/",
+    URL:         "amqp://deploy:change-me@padosme-rabbitmq:5672/",
     Exchange:    "padosme.events",
     Queue:       "coupon.seller-events",
     RoutingKey:  "seller.verified",
