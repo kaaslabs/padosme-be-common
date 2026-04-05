@@ -1,20 +1,20 @@
 # =============================================================================
-# PRODUCTION / STAGING — Observability stack only
+# Padosme Observability Stack (containerized)
 # =============================================================================
-# PostgreSQL, Redis, RabbitMQ, MongoDB are installed on the host.
-# Only observability (OTEL, Jaeger, Prometheus, Grafana) runs in containers.
+# Traces, metrics, dashboards, and admin tools.
+# These run as containers because they're stateless tooling, not core data.
 #
 # Usage:
-#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.observability.yml up -d
 #
-# Host services expected at:
-#   PostgreSQL:  localhost:5432
-#   Redis:       localhost:6379
-#   RabbitMQ:    localhost:5672 (mgmt: 15672)
-#   MongoDB:     localhost:27017
+# Prerequisites:
+#   docker network create padosme-network
 # =============================================================================
 
 services:
+  # ---------------------------------------------------------------------------
+  # OpenTelemetry Collector — receives traces/metrics from all services
+  # ---------------------------------------------------------------------------
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.148.0
     container_name: padosme-otel-collector
@@ -22,9 +22,9 @@ services:
     volumes:
       - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "0.0.0.0:4317:4317"    # OTLP gRPC
-      - "0.0.0.0:4318:4318"    # OTLP HTTP
-      - "127.0.0.1:8889:8889"  # Prometheus exporter
+      - "4317:4317"    # OTLP gRPC (services send traces here)
+      - "4318:4318"    # OTLP HTTP
+      - "8889:8889"    # Prometheus exporter metrics
     depends_on:
       jaeger:
         condition: service_started
@@ -33,20 +33,21 @@ services:
     networks:
       - padosme-network
     restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Jaeger — distributed tracing UI
+  # ---------------------------------------------------------------------------
   jaeger:
     image: jaegertracing/jaeger:2.16.0
     container_name: padosme-jaeger
     ports:
-      - "127.0.0.1:16686:16686"
-      - "127.0.0.1:14250:14250"
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # Jaeger gRPC
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -58,6 +59,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics collection
+  # ---------------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v3.10.0
     container_name: padosme-prometheus
@@ -70,11 +74,9 @@ services:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      - "9090:9090"
     networks:
       - padosme-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -82,11 +84,14 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Grafana — dashboards
+  # ---------------------------------------------------------------------------
   grafana:
     image: grafana/grafana:12.4.2
     container_name: padosme-grafana
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-change-me}

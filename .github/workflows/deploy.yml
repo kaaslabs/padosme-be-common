@@ -1,15 +1,66 @@
-name: Deploy Common Stack
+# =============================================================================
+# PadosMe Common — Observability Stack Deployment
+# =============================================================================
+# 3-Environment Pipeline:
+#   1. deploy-integration — Auto-deploys on push to develop (no approval)
+#   2. deploy-staging     — Requires manual approval from @riyashmh
+#   3. deploy-production  — Requires manual approval from @riyashmh + 5 min wait
+#
+# What gets deployed:
+#   docker-compose.prod.yml — OTEL collector, Jaeger, Prometheus, Grafana
+#   config/                 — OTEL, Prometheus, Grafana provisioning configs
+#
+# What is NOT deployed (one-time manual setup on host/baremetal):
+#   PostgreSQL, Redis, RabbitMQ, MongoDB
+#   scripts/setup-rabbitmq.sh, scripts/setup-databases.sh
+#   init-scripts/create-multiple-databases.sh
+#
+# Environment Protection Rules (configure in GitHub Settings > Environments):
+#   - integration: no approval, branch restriction: develop
+#   - staging:     require approval from @riyashmh
+#   - production:  require approval from @riyashmh + wait timer (5 min),
+#                  branch restriction: main
+#
+# Per-environment config (Settings > Environments > [env]):
+#   Variables (visible in logs, easy to debug):
+#     CLOUD_HOST, CLOUD_USER, CLOUD_PORT, CLOUD_DEPLOY_PATH
+#   Secrets (masked in logs):
+#     CLOUD_SSH_KEY, GF_SECURITY_ADMIN_PASSWORD
+# =============================================================================
+
+name: Deploy Observability Stack
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, develop]
+    paths:
+      - 'docker-compose.prod.yml'
+      - 'config/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'integration'
+        type: choice
+        options:
+          - integration
+          - staging
+          - production
+
+# Cancel in-progress runs for same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  # ============================================================================
+  # JOB 1: Secret Scan
+  # ============================================================================
+  scan:
+    name: Secret Scan
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,64 +68,90 @@ jobs:
       - name: Secret Scan (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
 
-      # -----------------------------------------------------------------------
-      # Step 1: Copy files to server
-      # Copies docker-compose.yml, config/, init-scripts/, scripts/
-      # to $CLOUD_DEPLOY_PATH (e.g. /opt/padosme/common)
-      # -----------------------------------------------------------------------
+  # ============================================================================
+  # JOB 2: Deploy to Integration
+  # ============================================================================
+  deploy-integration:
+    name: Deploy to Integration
+    needs: scan
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'integration')
+
+    environment:
+      name: integration
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.CLOUD_HOST }}
-          username: ${{ secrets.CLOUD_USER }}
-          port: ${{ secrets.CLOUD_PORT }}
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          source: "docker-compose.yml,config/,init-scripts/,scripts/"
-          target: ${{ secrets.CLOUD_DEPLOY_PATH }}
+          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          target: ${{ vars.CLOUD_DEPLOY_PATH }}
           strip_components: 0
 
-      # -----------------------------------------------------------------------
-      # Step 2: Deploy docker containers
-      # Stops and removes all containers (running, exited, unhealthy),
-      # then pulls latest images and starts all services.
-      # -----------------------------------------------------------------------
-      - name: Deploy docker containers
-        uses: appleboy/ssh-action@v1.0.3
+  # ============================================================================
+  # JOB 3: Deploy to Staging
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: scan
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.CLOUD_HOST }}
-          username: ${{ secrets.CLOUD_USER }}
-          port: ${{ secrets.CLOUD_PORT || 22 }}
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          script: |
-            cd ${{ secrets.CLOUD_DEPLOY_PATH }}
+          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          target: ${{ vars.CLOUD_DEPLOY_PATH }}
+          strip_components: 0
 
-            # Bring down only THIS compose stack and remove orphans
-            # (does NOT affect other padosme services on the same host)
-            docker compose -f docker-compose.yml down --remove-orphans || true
+  # ============================================================================
+  # JOB 4: Deploy to Production
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    needs: [scan, deploy-staging]
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
 
-            # Ensure the shared network exists
-            docker network create padosme-network 2>/dev/null || true
+    environment:
+      name: production
 
-            # Pull latest images and start all services
-            docker compose -f docker-compose.yml pull
-            docker compose -f docker-compose.yml up -d --build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # -----------------------------------------------------------------------
-      # Step 3: Initialize RabbitMQ topology
-      # Runs after containers are up. Scripts have built-in readiness waits.
-      # Ports per docker-compose.yml:
-      #   RabbitMQ management -> 15673
-      # -----------------------------------------------------------------------
-      - name: Initialize RabbitMQ 
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.CLOUD_HOST }}
-          username: ${{ secrets.CLOUD_USER }}
-          port: ${{ secrets.CLOUD_PORT || 22 }}
+          host: ${{ vars.CLOUD_HOST }}
+          username: ${{ vars.CLOUD_USER }}
+          port: ${{ vars.CLOUD_PORT }}
           key: ${{ secrets.CLOUD_SSH_KEY }}
-          script: |
-            cd ${{ secrets.CLOUD_DEPLOY_PATH }}
-            chmod +x scripts/setup-rabbitmq.sh scripts/setup-databases.sh
+          source: "docker-compose.prod.yml,docker-compose.admin-tools.yml,docker-compose.observability.yml,config/,scripts/,init-scripts/"
+          target: ${{ vars.CLOUD_DEPLOY_PATH }}
+          strip_components: 0
 
-            # Declare all RabbitMQ exchanges, queues and bindings
-            ./scripts/setup-rabbitmq.sh

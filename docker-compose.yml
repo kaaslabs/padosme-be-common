@@ -1,5 +1,13 @@
-# Common infrastructure services for all Padosme backend microservices
-# Start this before running individual microservices
+# =============================================================================
+# LOCAL DEVELOPMENT ONLY — All infrastructure in containers
+# =============================================================================
+# For production/staging: install PostgreSQL, Redis, RabbitMQ, MongoDB on host.
+# Use docker-compose.observability.yml for traces/metrics/dashboards.
+# Use docker-compose.admin-tools.yml for pgAdmin/RedisInsight.
+#
+# Usage (local dev):
+#   docker compose up -d
+# =============================================================================
 
 services:
   postgres:
@@ -43,37 +51,37 @@ services:
     networks:
       - padosme-network
     
-  rabbitmq:                                                                                                                                                                                       
+  rabbitmq: 
     image: rabbitmq:4.0.7-management
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
     container_name: padosme-rabbitmq                           
-    ports:                                                                                                                                                                                        
+    ports:
         - "5672:5672"     # AMQP
-        - "15672:15672"   # Management UI                                                                                                                                                           
-        - "15692:15692"   # Prometheus metrics                                                                                                                                                      
+        - "15672:15672"   # Management UI
+        - "15692:15692"   # Prometheus metrics
     environment:
-        RABBITMQ_DEFAULT_USER: rmq_admin                                                                                                                                                            
+        RABBITMQ_DEFAULT_USER: rmq_admin
         RABBITMQ_DEFAULT_PASS: ${RMQ_ADMIN_PASSWORD}        
-        RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"                                                                                                                             
-    volumes:                                                                                                                                                                                      
-        - rabbitmq_data:/var/lib/rabbitmq                                                                                                                                                           
-        - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro                                                                                                                                            
+        RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +sbwt very_long"
+    volumes:
+        - rabbitmq_data:/var/lib/rabbitmq
+        - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
         - ./advanced.config:/etc/rabbitmq/advanced.config:ro
-        - ./enabled_plugins:/etc/rabbitmq/enabled_plugins:ro                                                                                                                                        
+        - ./enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
     networks:
-        - padosme-network                                                                                                                                                                           
+        - padosme-network
     restart: unless-stopped                               
-    healthcheck:                                                                                                                                                                                  
+    healthcheck:
         test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-        interval: 30s                                                                                                                                                                               
+        interval: 30s
         timeout: 10s                                        
         start_period: 30s
-        retries: 3                                                                                                                                                                                  
+        retries: 3
     deploy:
-        resources:                                                                                                                                                                                  
+        resources:
           limits:                                           
             memory: 2G
           reservations:

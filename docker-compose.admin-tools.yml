@@ -1,0 +1,59 @@
+# =============================================================================
+# Padosme Admin Tools (containerized, optional)
+# =============================================================================
+# Database and cache admin UIs. Only run when you need them.
+# These connect to host-installed PostgreSQL, Redis, MongoDB.
+#
+# Usage:
+#   docker compose -f docker-compose.admin-tools.yml up -d
+#
+# Ports:
+#   pgAdmin:       http://localhost:8000
+#   RedisInsight:  http://localhost:5540
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # pgAdmin — PostgreSQL web admin
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:9.13
+    container_name: padosme-pgadmin
+    ports:
+      - "8000:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=cto@kaaslabs.com
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-change-me}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - padosme-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # RedisInsight — Redis web admin
+  # ---------------------------------------------------------------------------
+  redisinsight:
+    image: redis/redisinsight:3.0.3
+    container_name: padosme-redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - padosme-network
+    restart: unless-stopped
+
+networks:
+  padosme-network:
+    external: true
+
+volumes:
+  pgadmin-data:
+  redisinsight-data:
