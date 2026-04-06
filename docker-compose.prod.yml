@@ -36,9 +36,16 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: padosme_auth,padosme_profiles,padosme_sellers,padosme_notifications,rating_db,channel_service,padosme_coupon,wallet_service,subscription_service,payment_service,analytics_db,discovery,padosme_ledgers,padosme_config,padosme_location,padosme_indexing,padosme_dictionary
+    command: >
+      postgres
+       -c ssl=on
+       -c ssl_cert_file=/etc/ssl/certs/server.crt
+      -c ssl_key_file=/etc/ssl/private/server.key
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
+      - /opt/padosme/common/ssl/server.crt:/etc/ssl/certs/server.crt:ro                                                                                                      
+      - /opt/padosme/common/ssl/server.key:/etc/ssl/private/server.key:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
