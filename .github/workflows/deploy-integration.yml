@@ -1,0 +1,43 @@
+name: Deploy to Integration
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Config & Infra to Integration
+    runs-on: ubuntu-latest
+    environment:
+      name: integration
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy files to integration server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ vars.INT_SSH_HOST }}
+          username: ${{ vars.INT_SSH_USER }}
+          key: ${{ secrets.INT_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,ssl,config,scripts,init-scripts"
+          target: /opt/padosme/integration/
+          overwrite: true
+
+      - name: Set file permissions
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.INT_SSH_HOST }}
+          username: ${{ vars.INT_SSH_USER }}
+          key: ${{ secrets.INT_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            DEPLOY_DIR=/opt/padosme/integration
+            chmod 600 $DEPLOY_DIR/ssl/* 2>/dev/null || true
+            chmod +x $DEPLOY_DIR/scripts/*.sh 2>/dev/null || true
+            chmod +x $DEPLOY_DIR/init-scripts/*.sh 2>/dev/null || true
+            echo "Integration infra files deployed."

@@ -1,0 +1,41 @@
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Config & Infra to Staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy files to staging server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ vars.STG_SSH_HOST }}
+          username: ${{ vars.STG_SSH_USER }}
+          key: ${{ secrets.STG_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,ssl,config,scripts,init-scripts"
+          target: /opt/padosme/staging/
+          overwrite: true
+
+      - name: Set file permissions
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.STG_SSH_HOST }}
+          username: ${{ vars.STG_SSH_USER }}
+          key: ${{ secrets.STG_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            DEPLOY_DIR=/opt/padosme/staging
+            chmod 600 $DEPLOY_DIR/ssl/* 2>/dev/null || true
+            chmod +x $DEPLOY_DIR/scripts/*.sh 2>/dev/null || true
+            chmod +x $DEPLOY_DIR/init-scripts/*.sh 2>/dev/null || true
+            echo "Staging infra files deployed."

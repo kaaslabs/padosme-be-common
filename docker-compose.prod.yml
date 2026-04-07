@@ -40,7 +40,7 @@ services:
       postgres
        -c ssl=on
        -c ssl_cert_file=/etc/ssl/certs/server.crt
-      -c ssl_key_file=/etc/ssl/private/server.key
+       -c ssl_key_file=/etc/ssl/private/server.key
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./init-scripts/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
