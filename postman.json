@@ -1,0 +1,645 @@
+{
+  "info": {
+    "name": "Padosme Platform API",
+    "description": "Complete API collection for all Padosme microservices.\n\nVariables:\n- {{base_url}} — API gateway or direct service URL\n- {{jwt_token}} — Bearer token from /auth/verify-otp\n- {{service_token}} — X-Service-Token for service-to-service\n- {{admin_key}} — X-Api-Key for admin config ops\n- {{ws_token}} — WebSocket token from /auth/verify-otp response",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{jwt_token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "jwt_token", "value": "" },
+    { "key": "service_token", "value": "" },
+    { "key": "admin_key", "value": "" },
+    { "key": "ws_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth Service",
+      "description": "padosme-auth-service — OTP login, JWT tokens, device management",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } }
+        },
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/send-otp",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\"\n}" }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/verify-otp",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"device_id\": \"device-uuid\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/refresh-token",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"...\"\n}" }
+          }
+        },
+        {
+          "name": "Validate WS Token (S2S)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/auth/validate-ws-token",
+            "header": [
+              { "key": "X-Service-Token", "value": "{{service_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{ws_token}}\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{base_url}}/auth/logout" }
+        },
+        {
+          "name": "Purchase Alternate ID",
+          "request": { "method": "POST", "url": "{{base_url}}/auth/alternate-id/purchase" }
+        },
+        {
+          "name": "Get Alternate ID",
+          "request": { "method": "GET", "url": "{{base_url}}/auth/alternate-id" }
+        },
+        {
+          "name": "Delete Alternate ID",
+          "request": { "method": "DELETE", "url": "{{base_url}}/auth/alternate-id" }
+        },
+        {
+          "name": "List Devices",
+          "request": { "method": "GET", "url": "{{base_url}}/auth/devices" }
+        },
+        {
+          "name": "Remove Device",
+          "request": { "method": "DELETE", "url": "{{base_url}}/auth/devices/:device_id" }
+        },
+        {
+          "name": "Update Push Token",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/auth/devices/:device_id/push-token",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"push_token\": \"fcm-token-here\"\n}" }
+          }
+        },
+        {
+          "name": "[Admin] Get User",
+          "request": { "method": "GET", "url": "{{base_url}}/admin/users/:user_id" }
+        },
+        {
+          "name": "[Admin] Change User Type",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/admin/users/:user_id/type",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"user_type\": \"seller\"\n}" }
+          }
+        },
+        {
+          "name": "[Admin] Revoke All Tokens",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/users/:user_id/revoke-all" }
+        }
+      ]
+    },
+    {
+      "name": "Seller Service",
+      "description": "padosme-seller-service — Seller onboarding, profiles, outlets, teams, communities",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } }
+        },
+        {
+          "name": "Upgrade to Seller",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/seller/upgrade",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"business_name\": \"My Shop\",\n  \"business_type\": \"retail\",\n  \"package_type\": \"XS\",\n  \"seller_category\": \"shop\",\n  \"terms_accepted\": true\n}" }
+          }
+        },
+        {
+          "name": "Get Seller Profile",
+          "request": { "method": "GET", "url": "{{base_url}}/seller/profile" }
+        },
+        {
+          "name": "Update Seller Profile",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/seller/profile",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"business_name\": \"Updated Shop Name\",\n  \"gst_number\": \"22AAAAA0000A1Z5\"\n}" }
+          }
+        },
+        {
+          "name": "Update Location",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/seller/location",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946\n}" }
+          }
+        },
+        {
+          "name": "Set Open Status",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/seller/open-status",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_open\": true\n}" }
+          }
+        },
+        {
+          "name": "Outlets",
+          "description": "Multi-location management for L+ package sellers",
+          "item": [
+            {
+              "name": "Create Outlet",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/seller/outlets",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"outlet_name\": \"MG Road Branch\",\n  \"address\": \"123 MG Road\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"pincode\": \"560001\",\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946,\n  \"is_primary\": false\n}" }
+              }
+            },
+            {
+              "name": "List Outlets",
+              "request": { "method": "GET", "url": "{{base_url}}/seller/outlets" }
+            },
+            {
+              "name": "Get Outlet",
+              "request": { "method": "GET", "url": "{{base_url}}/seller/outlets/:id" }
+            },
+            {
+              "name": "Update Outlet",
+              "request": {
+                "method": "PUT",
+                "url": "{{base_url}}/seller/outlets/:id",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"outlet_name\": \"Renamed Branch\",\n  \"latitude\": 12.9800,\n  \"longitude\": 77.6000\n}" }
+              }
+            },
+            {
+              "name": "Deactivate Outlet",
+              "request": { "method": "DELETE", "url": "{{base_url}}/seller/outlets/:id" }
+            }
+          ]
+        },
+        {
+          "name": "Business Card",
+          "item": [
+            {
+              "name": "Create Business Card",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/seller/business-card",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"My Shop\",\n  \"tagline\": \"Best deals in town\",\n  \"contact_phone\": \"+919876543210\",\n  \"address\": \"123 Main St\",\n  \"is_public\": true\n}" }
+              }
+            },
+            {
+              "name": "Get Own Business Card",
+              "request": { "method": "GET", "url": "{{base_url}}/seller/business-card" }
+            },
+            {
+              "name": "Update Business Card",
+              "request": {
+                "method": "PUT",
+                "url": "{{base_url}}/seller/business-card",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"tagline\": \"Updated tagline\"\n}" }
+              }
+            },
+            {
+              "name": "Delete Business Card",
+              "request": { "method": "DELETE", "url": "{{base_url}}/seller/business-card" }
+            },
+            {
+              "name": "[Public] Search Business Cards",
+              "request": { "method": "GET", "url": "{{base_url}}/business-card/search?q=shop", "auth": { "type": "noauth" } }
+            },
+            {
+              "name": "[Public] Get Business Card by ID",
+              "request": { "method": "GET", "url": "{{base_url}}/business-card/:id", "auth": { "type": "noauth" } }
+            }
+          ]
+        },
+        {
+          "name": "Team",
+          "item": [
+            {
+              "name": "Invite Team Member",
+              "request": {
+                "method": "POST",
+                "url": "{{base_url}}/seller/team/invite",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"uuid-here\",\n  \"role\": \"manager\"\n}" }
+              }
+            },
+            {
+              "name": "List Team Members",
+              "request": { "method": "GET", "url": "{{base_url}}/seller/team" }
+            },
+            {
+              "name": "Accept Team Invite",
+              "request": { "method": "PUT", "url": "{{base_url}}/seller/team/:id/accept" }
+            },
+            {
+              "name": "Update Team Member Role",
+              "request": {
+                "method": "PUT",
+                "url": "{{base_url}}/seller/team/:id/role",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"role\": \"staff\"\n}" }
+              }
+            },
+            {
+              "name": "Remove Team Member",
+              "request": { "method": "DELETE", "url": "{{base_url}}/seller/team/:id" }
+            }
+          ]
+        },
+        {
+          "name": "Community",
+          "item": [
+            {
+              "name": "Join Community",
+              "request": { "method": "POST", "url": "{{base_url}}/community/:seller_id/join" }
+            },
+            {
+              "name": "Leave Community",
+              "request": { "method": "POST", "url": "{{base_url}}/community/:seller_id/leave" }
+            },
+            {
+              "name": "List Community Members",
+              "request": { "method": "GET", "url": "{{base_url}}/community/:seller_id/members" }
+            },
+            {
+              "name": "Update Community Member Role",
+              "request": {
+                "method": "PUT",
+                "url": "{{base_url}}/community/:seller_id/member/:user_id/role",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"role\": \"moderator\"\n}" }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Verify Seller",
+              "request": { "method": "POST", "url": "{{base_url}}/admin/seller/:seller_id/verify" }
+            },
+            {
+              "name": "Suspend Seller",
+              "request": { "method": "POST", "url": "{{base_url}}/admin/seller/:seller_id/suspend" }
+            },
+            {
+              "name": "Reactivate Seller",
+              "request": { "method": "POST", "url": "{{base_url}}/admin/seller/:seller_id/reactivate" }
+            },
+            {
+              "name": "List Sellers",
+              "request": { "method": "GET", "url": "{{base_url}}/admin/sellers" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "User Profile Service",
+      "description": "padosme-user-profile-service — Profiles, connections, wishlist, KYC",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } }
+        },
+        {
+          "name": "[Public] Get Profile by ID",
+          "request": { "method": "GET", "url": "{{base_url}}/user/profile/:profile_id", "auth": { "type": "noauth" } }
+        },
+        {
+          "name": "Create Profile",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/user/profile",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"John Doe\",\n  \"bio\": \"Hello world\"\n}" }
+          }
+        },
+        {
+          "name": "Get Own Profile",
+          "request": { "method": "GET", "url": "{{base_url}}/user/profile" }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/user/profile",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"display_name\": \"Updated Name\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Profile",
+          "request": { "method": "DELETE", "url": "{{base_url}}/user/profile" }
+        },
+        {
+          "name": "Custom Fields",
+          "item": [
+            { "name": "Create Field", "request": { "method": "POST", "url": "{{base_url}}/user/profile/fields", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"field_name\": \"company\",\n  \"value\": \"Acme Inc\"\n}" } } },
+            { "name": "List Fields", "request": { "method": "GET", "url": "{{base_url}}/user/profile/fields" } },
+            { "name": "Update Field", "request": { "method": "PUT", "url": "{{base_url}}/user/profile/fields/:field_name", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"value\": \"Updated\"\n}" } } },
+            { "name": "Delete Field", "request": { "method": "DELETE", "url": "{{base_url}}/user/profile/fields/:field_name" } }
+          ]
+        },
+        {
+          "name": "Field Sharing",
+          "item": [
+            { "name": "Share Field", "request": { "method": "POST", "url": "{{base_url}}/user/profile/share", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"target_user_id\": \"uuid\",\n  \"field_name\": \"phone\",\n  \"expires_in_hours\": 24\n}" } } },
+            { "name": "List Shares", "request": { "method": "GET", "url": "{{base_url}}/user/profile/shares" } },
+            { "name": "Revoke Share", "request": { "method": "DELETE", "url": "{{base_url}}/user/profile/share/:id" } }
+          ]
+        },
+        {
+          "name": "Locations",
+          "item": [
+            { "name": "Upsert Location", "request": { "method": "POST", "url": "{{base_url}}/user/location", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"type\": \"home\",\n  \"latitude\": 12.97,\n  \"longitude\": 77.59\n}" } } },
+            { "name": "List Locations", "request": { "method": "GET", "url": "{{base_url}}/user/locations" } },
+            { "name": "Delete Location", "request": { "method": "DELETE", "url": "{{base_url}}/user/location/:type" } }
+          ]
+        },
+        {
+          "name": "Connections",
+          "item": [
+            { "name": "Send Request", "request": { "method": "POST", "url": "{{base_url}}/user/connect", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"target_user_id\": \"uuid\"\n}" } } },
+            { "name": "Accept", "request": { "method": "PUT", "url": "{{base_url}}/user/connect/:id/accept" } },
+            { "name": "Reject", "request": { "method": "PUT", "url": "{{base_url}}/user/connect/:id/reject" } },
+            { "name": "Remove", "request": { "method": "DELETE", "url": "{{base_url}}/user/connect/:id" } },
+            { "name": "List", "request": { "method": "GET", "url": "{{base_url}}/user/connections" } },
+            { "name": "Block User", "request": { "method": "POST", "url": "{{base_url}}/user/block", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"target_user_id\": \"uuid\"\n}" } } }
+          ]
+        },
+        {
+          "name": "Wishlist",
+          "item": [
+            { "name": "Create", "request": { "method": "POST", "url": "{{base_url}}/user/wishlist", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"item_id\": \"uuid\",\n  \"item_type\": \"product\"\n}" } } },
+            { "name": "List", "request": { "method": "GET", "url": "{{base_url}}/user/wishlist" } },
+            { "name": "Update", "request": { "method": "PUT", "url": "{{base_url}}/user/wishlist/:id" } },
+            { "name": "Delete", "request": { "method": "DELETE", "url": "{{base_url}}/user/wishlist/:id" } }
+          ]
+        },
+        {
+          "name": "Watchlist",
+          "item": [
+            { "name": "Add", "request": { "method": "POST", "url": "{{base_url}}/user/watchlist", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"entity_type\": \"seller\",\n  \"entity_id\": \"uuid\"\n}" } } },
+            { "name": "List", "request": { "method": "GET", "url": "{{base_url}}/user/watchlist" } },
+            { "name": "Remove", "request": { "method": "DELETE", "url": "{{base_url}}/user/watchlist/:entity_type/:entity_id" } }
+          ]
+        },
+        {
+          "name": "KYC",
+          "item": [
+            { "name": "Initiate Aadhar", "request": { "method": "POST", "url": "{{base_url}}/kyc/aadhar/initiate", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"aadhar_number\": \"1234-5678-9012\"\n}" } } },
+            { "name": "Verify Aadhar", "request": { "method": "POST", "url": "{{base_url}}/kyc/aadhar/verify", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"otp\": \"123456\"\n}" } } },
+            { "name": "Get KYC Status", "request": { "method": "GET", "url": "{{base_url}}/kyc/status" } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Location Service",
+      "description": "padosme-location-service — Seller geo presence and location tracking",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Ready", "request": { "method": "GET", "url": "{{base_url}}/ready", "auth": { "type": "noauth" } } },
+        { "name": "Update Location", "request": { "method": "POST", "url": "{{base_url}}/v1/location/update", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"uuid\",\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946,\n  \"accuracy\": 10.0\n}" } } },
+        { "name": "Update Presence", "request": { "method": "POST", "url": "{{base_url}}/v1/location/presence", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"uuid\",\n  \"status\": \"active\"\n}" } } },
+        { "name": "Get Seller Location", "request": { "method": "GET", "url": "{{base_url}}/v1/location/:seller_id" } },
+        { "name": "Nearby Sellers (debug)", "request": { "method": "GET", "url": "{{base_url}}/v1/location/nearby?latitude=12.97&longitude=77.59&radius=5" } }
+      ]
+    },
+    {
+      "name": "Search API",
+      "description": "padosme-search-api — Semantic search with geo-radius and WebSocket streaming",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Ready", "request": { "method": "GET", "url": "{{base_url}}/ready", "auth": { "type": "noauth" } } },
+        { "name": "Live", "request": { "method": "GET", "url": "{{base_url}}/live", "auth": { "type": "noauth" } } },
+        {
+          "name": "Search",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/search",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"query\": \"biryani near me\",\n  \"lat\": 12.9716,\n  \"lon\": 77.5946,\n  \"radius_km\": 1.0,\n  \"push_level\": 0,\n  \"entity_type\": \"shop\"\n}" },
+            "description": "push_level: 0=1KM, 1=5KM, 2=25KM, 3=PAN INDIA"
+          }
+        },
+        { "name": "Create Search Context", "request": { "method": "POST", "url": "{{base_url}}/search/context", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"query\": \"electronics\",\n  \"lat\": 12.97,\n  \"lon\": 77.59\n}" } } },
+        { "name": "Get Search Context", "request": { "method": "GET", "url": "{{base_url}}/search/context/:id" } },
+        { "name": "Update Search Context", "request": { "method": "PUT", "url": "{{base_url}}/search/context/:id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"push_level\": 1\n}" } } },
+        { "name": "Delete Search Context", "request": { "method": "DELETE", "url": "{{base_url}}/search/context/:id" } },
+        {
+          "name": "WebSocket Search",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/ws/search?token={{ws_token}}",
+            "description": "WebSocket endpoint for real-time streaming search.\n\nConnect via ws:// or wss:// protocol.\nAuth: JWT token passed as query parameter.\n\nSend JSON messages:\n{\n  \"query\": \"restaurants\",\n  \"lat\": 12.97,\n  \"lon\": 77.59,\n  \"radius_km\": 5.0,\n  \"push_level\": 1\n}\n\nReceives streaming RankedSeller results."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discovery Service",
+      "description": "padosme-discovery-service — Geo-spatial seller discovery",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Ready", "request": { "method": "GET", "url": "{{base_url}}/ready", "auth": { "type": "noauth" } } },
+        { "name": "Discovery Search", "request": { "method": "POST", "url": "{{base_url}}/api/v1/discovery/search", "auth": { "type": "noauth" }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"lat\": 12.97,\n  \"lon\": 77.59,\n  \"radius_km\": 5.0\n}" } } },
+        { "name": "Nearby Users", "request": { "method": "POST", "url": "{{base_url}}/api/v1/discovery/nearby-users", "auth": { "type": "noauth" }, "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"lat\": 12.97,\n  \"lon\": 77.59,\n  \"radius_km\": 1.0\n}" } } }
+      ]
+    },
+    {
+      "name": "Catalogue Service",
+      "description": "padosme-catalogue-service — Product/service catalogs and items",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Get Catalog", "request": { "method": "GET", "url": "{{base_url}}/catalogs/:catalog_id", "auth": { "type": "noauth" } } },
+        { "name": "[Public] List Seller Catalogs", "request": { "method": "GET", "url": "{{base_url}}/sellers/:seller_id/catalogs", "auth": { "type": "noauth" } } },
+        { "name": "[Public] List Catalog Items", "request": { "method": "GET", "url": "{{base_url}}/catalogs/:catalog_id/items", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Export Catalog Items", "request": { "method": "GET", "url": "{{base_url}}/catalogs/:catalog_id/items/export", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Get Item", "request": { "method": "GET", "url": "{{base_url}}/items/:id", "auth": { "type": "noauth" } } },
+        { "name": "Create Catalog", "request": { "method": "POST", "url": "{{base_url}}/catalogs", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Summer Collection\",\n  \"type\": \"product\",\n  \"visibility\": \"public\"\n}" } } },
+        { "name": "Update Catalog", "request": { "method": "PUT", "url": "{{base_url}}/catalogs/:catalog_id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Catalog\"\n}" } } },
+        { "name": "Delete Catalog", "request": { "method": "DELETE", "url": "{{base_url}}/catalogs/:catalog_id" } },
+        { "name": "Create Item", "request": { "method": "POST", "url": "{{base_url}}/catalogs/:catalog_id/items", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Widget\",\n  \"price\": 9900,\n  \"category\": \"electronics\",\n  \"type\": \"product\"\n}" } } },
+        { "name": "Bulk Import Items", "request": { "method": "POST", "url": "{{base_url}}/catalogs/:catalog_id/items/bulk", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"items\": []\n}" } } },
+        { "name": "Update Item", "request": { "method": "PUT", "url": "{{base_url}}/items/:id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Widget\",\n  \"price\": 8900\n}" } } },
+        { "name": "Delete Item", "request": { "method": "DELETE", "url": "{{base_url}}/items/:id" } },
+        { "name": "Upload Item Image", "request": { "method": "POST", "url": "{{base_url}}/items/:id/images", "body": { "mode": "formdata", "formdata": [{ "key": "image", "type": "file", "src": "" }] } } }
+      ]
+    },
+    {
+      "name": "Coupon Service",
+      "description": "padosme-coupon-service — Sales campaigns, coupons, redemption",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Initiate Coupon", "request": { "method": "POST", "url": "{{base_url}}/sales/coupon/initiate", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"SELLER123\",\n  \"salesman_id\": \"SALES001\",\n  \"campaign_id\": \"uuid\",\n  \"qr_payload\": {\n    \"seller_id\": \"SELLER123\",\n    \"seller_mobile\": \"+919876543210\",\n    \"nonce\": \"abcd1234\",\n    \"timestamp\": 1700000000\n  }\n}" } } },
+        { "name": "Get Coupon", "request": { "method": "GET", "url": "{{base_url}}/sales/coupon/:code" } },
+        { "name": "Validate Coupon (S2S)", "request": { "method": "POST", "url": "{{base_url}}/sales/coupon/validate", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"coupon_code\": \"PDSME-30-ABCD12\"\n}" } } },
+        { "name": "Redeem Coupon (S2S)", "request": { "method": "POST", "url": "{{base_url}}/sales/coupon/redeem", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"coupon_code\": \"PDSME-30-ABCD12\"\n}" } } },
+        { "name": "Get Salesman Stats", "request": { "method": "GET", "url": "{{base_url}}/sales/salesman/:id/stats" } },
+        { "name": "[Admin] Create Campaign", "request": { "method": "POST", "url": "{{base_url}}/sales/campaign", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Summer Sale\",\n  \"discount_type\": \"percent\",\n  \"discount_value\": 30,\n  \"max_redemptions\": 100,\n  \"per_salesman_limit\": 10,\n  \"valid_from\": \"2026-04-01T00:00:00Z\",\n  \"valid_to\": \"2026-06-30T23:59:59Z\"\n}" } } },
+        { "name": "[Admin] List Campaigns", "request": { "method": "GET", "url": "{{base_url}}/sales/campaign/list" } },
+        { "name": "[Admin] Get Campaign", "request": { "method": "GET", "url": "{{base_url}}/sales/campaign/:id" } },
+        { "name": "[Admin] Update Campaign", "request": { "method": "PUT", "url": "{{base_url}}/sales/campaign/:id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Campaign\"\n}" } } },
+        { "name": "[Admin] Campaign Stats", "request": { "method": "GET", "url": "{{base_url}}/sales/campaign/:id/stats" } },
+        { "name": "[Admin] Campaign Activity", "request": { "method": "GET", "url": "{{base_url}}/sales/campaign/:id/activity" } },
+        { "name": "[Admin] Generate Bulk Coupons", "request": { "method": "POST", "url": "{{base_url}}/sales/campaign/:id/generate-bulk", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"count\": 50\n}" } } }
+      ]
+    },
+    {
+      "name": "Rating Service",
+      "description": "padosme-rating-service — Reviews, ratings, moderation",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Seller Ratings", "request": { "method": "GET", "url": "{{base_url}}/rating/seller/:seller_id", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Product Ratings", "request": { "method": "GET", "url": "{{base_url}}/rating/product/:product_id", "auth": { "type": "noauth" } } },
+        { "name": "Submit Rating", "request": { "method": "POST", "url": "{{base_url}}/rating", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"uuid\",\n  \"rating\": 4,\n  \"review\": \"Great service!\"\n}" } } },
+        { "name": "Update Rating", "request": { "method": "PUT", "url": "{{base_url}}/rating/:review_id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"review\": \"Updated review\"\n}" } } },
+        { "name": "Delete Rating", "request": { "method": "DELETE", "url": "{{base_url}}/rating/:review_id" } },
+        { "name": "Flag Review", "request": { "method": "POST", "url": "{{base_url}}/rating/flag", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"review_id\": \"uuid\",\n  \"reason\": \"spam\"\n}" } } },
+        { "name": "Submit Product Review", "request": { "method": "POST", "url": "{{base_url}}/rating/product", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"product_id\": \"uuid\",\n  \"rating\": 5\n}" } } },
+        { "name": "[Admin] List Flagged", "request": { "method": "GET", "url": "{{base_url}}/rating/flagged", "header": [{ "key": "X-Admin-Key", "value": "{{admin_key}}" }] } },
+        { "name": "[Admin] Moderate", "request": { "method": "POST", "url": "{{base_url}}/rating/moderate", "header": [{ "key": "X-Admin-Key", "value": "{{admin_key}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"review_id\": \"uuid\",\n  \"action\": \"remove\"\n}" } } }
+      ]
+    },
+    {
+      "name": "Channel Service",
+      "description": "padosme-channel-service — Seller channels, posts, bulletin feed",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "[Public] User Feed", "request": { "method": "GET", "url": "{{base_url}}/channel/feed/:user_id", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Bulletin", "request": { "method": "GET", "url": "{{base_url}}/channel/bulletin/:cluster_id", "auth": { "type": "noauth" } } },
+        { "name": "Create Post (Seller)", "request": { "method": "POST", "url": "{{base_url}}/channel/post", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"content\": \"New arrivals in store!\",\n  \"type\": \"announcement\"\n}" } } },
+        { "name": "Subscribe", "request": { "method": "POST", "url": "{{base_url}}/channel/subscribe", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"uuid\"\n}" } } },
+        { "name": "Unsubscribe", "request": { "method": "POST", "url": "{{base_url}}/channel/unsubscribe", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"seller_id\": \"uuid\"\n}" } } },
+        { "name": "Flag Post", "request": { "method": "POST", "url": "{{base_url}}/channel/post/flag", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"post_id\": \"uuid\",\n  \"reason\": \"inappropriate\"\n}" } } },
+        { "name": "[Admin] Flagged Posts", "request": { "method": "GET", "url": "{{base_url}}/channel/post/flagged", "header": [{ "key": "X-Internal-Token", "value": "{{service_token}}" }] } },
+        { "name": "[Admin] Moderate Post", "request": { "method": "POST", "url": "{{base_url}}/channel/post/moderate", "header": [{ "key": "X-Internal-Token", "value": "{{service_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"post_id\": \"uuid\",\n  \"action\": \"remove\"\n}" } } }
+      ]
+    },
+    {
+      "name": "Wallet Service",
+      "description": "padosme-wallet-service — Credit wallet, transactions, transfers",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Create Wallet", "request": { "method": "POST", "url": "{{base_url}}/v1/wallet/create", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"owner_id\": \"uuid\",\n  \"owner_type\": \"user\"\n}" } } },
+        { "name": "Get Balance", "request": { "method": "GET", "url": "{{base_url}}/v1/wallet/:owner_id/balance" } },
+        { "name": "Credit", "request": { "method": "POST", "url": "{{base_url}}/v1/wallet/credit", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"owner_id\": \"uuid\",\n  \"amount\": 1000,\n  \"idempotency_key\": \"unique-key\",\n  \"reason\": \"coupon_reward\"\n}" } } },
+        { "name": "Debit", "request": { "method": "POST", "url": "{{base_url}}/v1/wallet/debit", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"owner_id\": \"uuid\",\n  \"amount\": 500,\n  \"idempotency_key\": \"unique-key\",\n  \"reason\": \"purchase\"\n}" } } },
+        { "name": "Transfer", "request": { "method": "POST", "url": "{{base_url}}/v1/wallet/transfer", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"from_owner_id\": \"uuid\",\n  \"to_owner_id\": \"uuid\",\n  \"amount\": 200,\n  \"idempotency_key\": \"unique-key\"\n}" } } },
+        { "name": "Transaction History", "request": { "method": "GET", "url": "{{base_url}}/v1/wallet/:owner_id/transactions" } }
+      ]
+    },
+    {
+      "name": "Subscription Service",
+      "description": "padosme-subscription-service — Plans, packages, billing",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "[Public] List Packages", "request": { "method": "GET", "url": "{{base_url}}/v1/subscriptions/packages/", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Plan Limits", "request": { "method": "GET", "url": "{{base_url}}/v1/subscriptions/packages/:tier/limits", "auth": { "type": "noauth" } } },
+        { "name": "[Public] Get Package", "request": { "method": "GET", "url": "{{base_url}}/v1/subscriptions/packages/:id", "auth": { "type": "noauth" } } },
+        { "name": "Get Wallet", "request": { "method": "GET", "url": "{{base_url}}/v1/wallet/:user_id" } },
+        { "name": "Deduct Credits", "request": { "method": "POST", "url": "{{base_url}}/v1/wallet/deduct", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"uuid\",\n  \"amount\": 100\n}" } } },
+        { "name": "Transaction History", "request": { "method": "GET", "url": "{{base_url}}/v1/wallet/history/:user_id" } },
+        { "name": "[Admin] Create Package", "request": { "method": "POST", "url": "{{base_url}}/v1/admin/subscriptions/packages/", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Premium\",\n  \"tier\": \"XL\",\n  \"price\": 9999\n}" } } },
+        { "name": "[Admin] Update Package", "request": { "method": "PUT", "url": "{{base_url}}/v1/admin/subscriptions/packages/:id", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"price\": 8999\n}" } } }
+      ]
+    },
+    {
+      "name": "Config Service",
+      "description": "padosme-config-service — Runtime config and feature flags",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Get Config (S2S)", "request": { "method": "GET", "url": "{{base_url}}/config/:key", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "Get Service Configs (S2S)", "request": { "method": "GET", "url": "{{base_url}}/config/service/:service_name", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "[Admin] Create Config", "request": { "method": "POST", "url": "{{base_url}}/config", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"key\": \"max_upload_mb\",\n  \"value\": \"10\",\n  \"service\": \"catalogue-service\"\n}" } } },
+        { "name": "[Admin] Update Config", "request": { "method": "PUT", "url": "{{base_url}}/config/:key", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"value\": \"20\"\n}" } } },
+        { "name": "[Admin] Delete Config", "request": { "method": "DELETE", "url": "{{base_url}}/config/:key", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }] } },
+        { "name": "List Feature Flags (S2S)", "request": { "method": "GET", "url": "{{base_url}}/feature-flags", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "Get Feature Flag (S2S)", "request": { "method": "GET", "url": "{{base_url}}/feature-flags/:flag_key", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "Evaluate Flag (S2S)", "request": { "method": "GET", "url": "{{base_url}}/feature-flags/:flag_key/evaluate?entity_id=uuid", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "[Admin] Create Flag", "request": { "method": "POST", "url": "{{base_url}}/feature-flags", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"flag_key\": \"enable_outlets\",\n  \"enabled\": true\n}" } } },
+        { "name": "[Admin] Update Flag", "request": { "method": "PUT", "url": "{{base_url}}/feature-flags/:flag_key", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"enabled\": false\n}" } } },
+        { "name": "[Admin] Delete Flag", "request": { "method": "DELETE", "url": "{{base_url}}/feature-flags/:flag_key", "header": [{ "key": "X-Api-Key", "value": "{{admin_key}}" }] } }
+      ]
+    },
+    {
+      "name": "Analytics Service",
+      "description": "padosme-analytics-service — Platform, seller, and campaign analytics",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Seller Overview", "request": { "method": "GET", "url": "{{base_url}}/analytics/seller/:seller_id/overview" } },
+        { "name": "Seller Dashboard", "request": { "method": "GET", "url": "{{base_url}}/analytics/seller/:seller_id/dashboard" } },
+        { "name": "Profile Views", "request": { "method": "GET", "url": "{{base_url}}/analytics/seller/:seller_id/profile-views" } },
+        { "name": "[Admin] Platform Metrics", "request": { "method": "GET", "url": "{{base_url}}/analytics/platform" } },
+        { "name": "[Admin] Search Analytics", "request": { "method": "GET", "url": "{{base_url}}/analytics/search" } },
+        { "name": "[Admin] Campaign Analytics", "request": { "method": "GET", "url": "{{base_url}}/analytics/campaign/:campaign_id" } },
+        { "name": "[Admin] Campaign Metrics", "request": { "method": "GET", "url": "{{base_url}}/analytics/campaign/:campaign_id/metrics?from=2026-04-01&to=2026-04-30" } },
+        { "name": "[Admin] Top Campaigns", "request": { "method": "GET", "url": "{{base_url}}/analytics/campaigns/top" } },
+        { "name": "[Admin] Top Salesmen", "request": { "method": "GET", "url": "{{base_url}}/analytics/salesmen/top" } },
+        { "name": "[Admin] Salesman Metrics", "request": { "method": "GET", "url": "{{base_url}}/analytics/salesman/:salesman_id/metrics" } },
+        { "name": "[Admin] Credit Analytics", "request": { "method": "GET", "url": "{{base_url}}/analytics/credits" } }
+      ]
+    },
+    {
+      "name": "Indexing Service",
+      "description": "padosme-indexing-service — Search index management (admin/internal)",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Ready", "request": { "method": "GET", "url": "{{base_url}}/ready", "auth": { "type": "noauth" } } },
+        { "name": "Trigger Full Rebuild", "request": { "method": "POST", "url": "{{base_url}}/v1/index/rebuild" } },
+        { "name": "Get Index Status", "request": { "method": "GET", "url": "{{base_url}}/v1/index/status" } },
+        { "name": "Force Seller Reindex", "request": { "method": "POST", "url": "{{base_url}}/v1/index/seller/:seller_id" } },
+        { "name": "[Admin] Approve Terms", "request": { "method": "POST", "url": "{{base_url}}/admin/terms/approve", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"term_ids\": [\"uuid1\", \"uuid2\"]\n}" } } },
+        { "name": "[Admin] Reject Terms", "request": { "method": "POST", "url": "{{base_url}}/admin/terms/reject", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"term_ids\": [\"uuid1\"]\n}" } } },
+        { "name": "[Admin] Approve Synonyms", "request": { "method": "POST", "url": "{{base_url}}/admin/synonyms/approve", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"synonym_ids\": [\"uuid1\"]\n}" } } },
+        { "name": "[Admin] Reject Synonyms", "request": { "method": "POST", "url": "{{base_url}}/admin/synonyms/reject", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"synonym_ids\": [\"uuid1\"]\n}" } } }
+      ]
+    },
+    {
+      "name": "Dictionary Service",
+      "description": "padosme-dictionary-service — Keyword expansion and term lookup",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{base_url}}/health", "auth": { "type": "noauth" } } },
+        { "name": "Expand Keywords (S2S)", "request": { "method": "GET", "url": "{{base_url}}/expand?term=biryani", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "Lookup Term (S2S)", "request": { "method": "GET", "url": "{{base_url}}/lookup?term=restaurant", "header": [{ "key": "X-Service-Token", "value": "{{service_token}}" }] } },
+        { "name": "[Admin] Approve Terms", "request": { "method": "POST", "url": "{{base_url}}/admin/terms/approve", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"term_ids\": [\"uuid1\"]\n}" } } },
+        { "name": "[Admin] Approve Synonyms", "request": { "method": "POST", "url": "{{base_url}}/admin/synonyms/approve", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"synonym_ids\": [\"uuid1\"]\n}" } } },
+        { "name": "[Admin] Reject Terms", "request": { "method": "POST", "url": "{{base_url}}/admin/terms/reject" } },
+        { "name": "[Admin] Reject Synonyms", "request": { "method": "POST", "url": "{{base_url}}/admin/synonyms/reject" } }
+      ]
+    }
+  ]
+}
