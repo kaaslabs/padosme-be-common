@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -155,6 +156,10 @@ func (c *Consumer) declareTopology(ch *amqp.Channel) error {
 }
 
 func (c *Consumer) handleDelivery(ctx context.Context, msg amqp.Delivery) {
+	// Continue the distributed trace started by the publisher. If no
+	// traceparent header is present (legacy messages) the handler's own
+	// tracer.Start will just create a new root span.
+	ctx = otel.GetTextMapPropagator().Extract(ctx, amqpHeaderCarrier(msg.Headers))
 	err := c.handler(ctx, msg.Body)
 	switch {
 	case err == nil:
