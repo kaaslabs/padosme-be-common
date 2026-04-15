@@ -11,6 +11,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 )
 
@@ -65,7 +66,10 @@ func (p *Publisher) Publish(ctx context.Context, routingKey string, body []byte)
 		return fmt.Errorf("rabbitmq publisher: already closed")
 	}
 
-	if err := p.publishOnce(routingKey, body); err != nil {
+	headers := amqp.Table{}
+	otel.GetTextMapPropagator().Inject(ctx, amqpHeaderCarrier(headers))
+
+	if err := p.publishOnce(routingKey, body, headers); err != nil {
 		p.logger.Warn("rabbitmq: publish failed, reconnecting",
 			zap.String("exchange", p.cfg.Exchange),
 			zap.String("routing_key", routingKey),
@@ -74,12 +78,12 @@ func (p *Publisher) Publish(ctx context.Context, routingKey string, body []byte)
 		if reconnErr := p.reconnect(); reconnErr != nil {
 			return fmt.Errorf("rabbitmq publisher: reconnect failed: %w", reconnErr)
 		}
-		return p.publishOnce(routingKey, body)
+		return p.publishOnce(routingKey, body, headers)
 	}
 	return nil
 }
 
-func (p *Publisher) publishOnce(routingKey string, body []byte) error {
+func (p *Publisher) publishOnce(routingKey string, body []byte, headers amqp.Table) error {
 	p.mu.RLock()
 	ch := p.ch
 	exchange := p.cfg.Exchange
@@ -96,6 +100,7 @@ func (p *Publisher) publishOnce(routingKey string, body []byte) error {
 			ContentType:  "application/json",
 			DeliveryMode: amqp.Persistent,
 			Timestamp:    time.Now(),
+			Headers:      headers,
 			Body:         body,
 		},
 	); err != nil {
